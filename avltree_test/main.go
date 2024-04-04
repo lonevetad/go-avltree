@@ -58,6 +58,12 @@ func main() {
 	td.id = -7
 	td.text = "HELLO NULL STRING"
 	fmt.Printf("null data: %v\n", td)
+	avlTreeConstructorParams := avltree.AVLTreeConstructorParams[int, *TestData]{}
+	avlTreeConstructorParams.KeyCollisionBehavior = avltree.Replace
+	avlTreeConstructorParams.KeyZeroValue = -1
+	avlTreeConstructorParams.ValueZeroValue = td
+	avlTreeConstructorParams.KeyExtractor = extract
+	avlTreeConstructorParams.Comparator = compare
 
 	forEaches := []avltree.ForEachMode{
 		avltree.InOrder,
@@ -69,9 +75,11 @@ func main() {
 		{88, 7, 100}, //
 		{5, 4, 3, 2, 100, 1, 80, 1111, 44, 22, 99, 84, 83},
 		{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10, 11, 12, 13, 14, 15, 16},
+		{2, 2, 3, 3, 40, 40, 1, 1, 33, 33, 55, 55, 37, 37},
 	}
 	datasets_v := [][]string{
 		{"Adam", "Eevee", "GOD HIMSELF"},
+		nil,
 		nil,
 		nil,
 	}
@@ -80,7 +88,7 @@ func main() {
 		texts := datasets_v[i]
 		fmt.Printf("\n\n\n -------------------------------------------------------------------\n")
 		fmt.Printf("beginning the cycle # %d\n", i)
-		t, err := avltree.NewAVLTree(-1, td, extract, compare)
+		t, err := avltree.NewAVLTree(avlTreeConstructorParams)
 		if err != nil {
 			fmt.Print("ERROR!")
 			fmt.Print(err)

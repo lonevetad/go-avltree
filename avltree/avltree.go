@@ -8,7 +8,7 @@ import (
 )
 
 const DEPTH_INITIAL int = -1
-const INTEGER_MAX_VALUE int = 2147483647
+const INTEGER_MAX_VALUE int64 = 9223372036854775807
 
 type ForEachMode byte
 
@@ -19,7 +19,12 @@ const (
 	Stack          ForEachMode = 3
 )
 
-// TODO: an enum for "for each" order"
+type KeyCollisionBehavior byte
+
+const (
+	Replace         KeyCollisionBehavior = 0
+	IgnoreInsertion KeyCollisionBehavior = 1
+)
 
 // just an alias, since the compiler can't properly parse the Comparator's generic:
 // "K *any" is interpreted as a multiplication
@@ -52,16 +57,21 @@ type AVLTNode[K any, V any] struct {
 	nextInserted *AVLTNode[K, V]
 }
 
+type AVLTreeConstructorParams[K any, V any] struct {
+	KeyCollisionBehavior KeyCollisionBehavior
+	KeyZeroValue         K
+	ValueZeroValue       V
+	KeyExtractor         KeyExtractor[K, V]
+	Comparator           Comparator[K]
+}
+
 type AVLTree[K any, V any] struct {
-	size           int
-	keyZeroValue   K
-	valueZeroValue V
-	keyExtractor   KeyExtractor[K, V]
-	comparator     Comparator[K]
-	root           *AVLTNode[K, V]
-	_NIL           *AVLTNode[K, V]
-	minValue       *AVLTNode[K, V] // used for optimizations
-	firstInserted  *AVLTNode[K, V]
+	size                     int64
+	avlTreeConstructorParams AVLTreeConstructorParams[K, V]
+	root                     *AVLTNode[K, V]
+	_NIL                     *AVLTNode[K, V]
+	minValue                 *AVLTNode[K, V] // used for optimizations
+	firstInserted            *AVLTNode[K, V]
 }
 
 //
@@ -114,11 +124,7 @@ func (t *AVLTree[K, V]) removeToLastInserted(n *AVLTNode[K, V]) {
 }
 
 func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
-	prevSize := int(0)
-
-	fmt.Printf("putting .... n: %v\n", n)
 	if t.size == 0 || t.root == t._NIL {
-		fmt.Print("FIRST PUT!")
 		t.size = 1
 		t.root = n
 		t.minValue = n
@@ -132,7 +138,6 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		t._NIL.nextInOrder = t._NIL
 		t._NIL.prevInOrder = t._NIL
 
-		//super.put(n)
 		// tracking the chronological order
 		t.firstInserted = n
 		// self linking
@@ -140,46 +145,40 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		n.prevInserted = n
 		t._NIL.nextInserted = t._NIL
 		t._NIL.prevInserted = t._NIL
-		return t.valueZeroValue, nil
+		return t.avlTreeConstructorParams.ValueZeroValue, nil
 	}
 
-	prevSize = t.size
 	k := n.keyVal.key
 	v := n.keyVal.value
-	// v = super.put(n)
 
 	//x is the iterator, next is the next node to move on
-	next := t.root
-	x := t.root // must not be set to NIL, due to the while condition
-	// descend the tree
+	next := t.root // must not be set to NIL, due to the while condition
+	x := t.root
 	c := int(0)
+	// descend the tree
 	stillSearching := true
 	for stillSearching && (next != t._NIL) {
 		x = next
-		c = t.comparator(k, x.keyVal.key)
+		c = t.avlTreeConstructorParams.Comparator(k, x.keyVal.key)
 		if c == 0 {
-			/*
-				if (behaviour == BehaviourOnKeyCollision.Replace) {
-					oldValue = x.keyVal.value
-					x.k = k
-					x.keyVal.value = v
-					stillSearching = false
-				} else if (behaviour == BehaviourOnKeyCollision.KeepPrevious)
-					stillSearching = false
-					return x.keyVal.value
-				else // if (behavior == BehaviorOnKeyCollision.AddItsNotASet) //
-					// -> add
-					c = -1
-			*/
-			stillSearching = false
-			oldValue := x.keyVal.value
-			x.keyVal.key = k
-			x.keyVal.value = v
-
-			fmt.Print("substituting ....")
-			t.removeToLastInserted(n)
-			t.pushToLastInserted(n)
-			return oldValue, nil
+			if t.avlTreeConstructorParams.KeyCollisionBehavior == Replace {
+				stillSearching = false
+				oldValue := x.keyVal.value
+				x.keyVal.key = k
+				x.keyVal.value = v
+				// since the node has been modified,
+				t.removeToLastInserted(x)
+				t.pushToLastInserted(x)
+				return oldValue, nil
+			} else if t.avlTreeConstructorParams.KeyCollisionBehavior == IgnoreInsertion {
+				return x.keyVal.value, nil
+			} else {
+				// if (behavior == BehaviorOnKeyCollision.AddItsNotASet) // -> add
+				// stillSearching = false
+				// c = -1
+				return t.avlTreeConstructorParams.ValueZeroValue,
+					fmt.Errorf("unexpected key collision behaviour: %b", t.avlTreeConstructorParams.KeyCollisionBehavior)
+			}
 		}
 		if stillSearching {
 			if c > 0 {
@@ -190,6 +189,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 	}
 
+	//the new node has been placed as a leaf, check for errors
 	if next == t._NIL {
 		// end of tree reached: x is a leaf
 		if c > 0 {
@@ -199,14 +199,13 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 		n.father = x
 	} else {
-		return t.valueZeroValue, errors.New("NOT A END?")
+		return t.avlTreeConstructorParams.ValueZeroValue, errors.New("NOT A END?")
 	}
 	if t.size != INTEGER_MAX_VALUE {
 		t.size++
 	}
 
 	// adjust links for iterators
-	// minValue
 	if c > 0 {
 		n.prevInOrder = x
 		x.nextInOrder.prevInOrder = n
@@ -222,7 +221,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 	}
 
-	// don't use n: it's height is 0 and it's connected only to NIL -> is balanced
+	// we don't use n: it's height is 0 and it's connected only to NIL -> is balanced
 	t.insertFixup(x)
 	t._NIL.father = t._NIL
 	t._NIL.left = t._NIL
@@ -230,14 +229,8 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 	t._NIL.nextInOrder = t._NIL
 	t._NIL.prevInOrder = t._NIL
 
-	if prevSize != INTEGER_MAX_VALUE && prevSize != t.size {
-		// node really added
-		n.prevInserted = t.firstInserted.prevInserted
-		n.nextInserted = t.firstInserted
-		t.firstInserted.prevInserted.nextInserted = n
-		t.firstInserted.prevInserted = n
-	}
-
+	// track chronological insertion
+	t.pushToLastInserted(n)
 	t._NIL.nextInserted = t._NIL
 	t._NIL.prevInserted = t._NIL
 	return v, nil
@@ -484,7 +477,7 @@ func (n *AVLTNode[K, V]) String() string {
 }
 */
 
-func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer func(string)) {
+func (t *AVLTree[K, V]) toStringTabbed(fullLogNode bool, n *AVLTNode[K, V], tabLevel int, printer func(string)) {
 	var sb strings.Builder
 	for i := 0; i < tabLevel; i++ {
 		sb.WriteString("  ")
@@ -496,12 +489,11 @@ func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer 
 		return
 	}
 
-	n.toStringTabbed(func(s string) { sb.WriteString(s) })
-	sb.WriteString(" -- index= ")
+	sb.WriteString(" -- at index= ")
 	sb.WriteString(strconv.Itoa(t.index(n)))
-	sb.WriteString(" ; father's key= <<")
-	sb.WriteString(fmt.Sprint(n.father.keyVal.key))
-	sb.WriteString(">> ;; value= <<")
+	sb.WriteString(" we have ")
+	n.toStringTabbed(fullLogNode, func(s string) { sb.WriteString(s) })
+	sb.WriteString(" ;; and value= <<")
 	val, ok := any(n.keyVal.value).(*AVLTree[K, V])
 	if ok && val == t {
 		sb.WriteString(" SELF TREE - RECURSION AVOIDED ")
@@ -511,26 +503,39 @@ func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer 
 	sb.WriteString("\n")
 	printer(sb.String())
 	sb.Reset() // make it invalid / unusable
-	t.toStringTabbed(n.left, tabLevel+1, printer)
+	t.toStringTabbed(fullLogNode, n.left, tabLevel+1, printer)
 	printer("\n")
-	t.toStringTabbed(n.right, tabLevel+1, printer)
+	t.toStringTabbed(fullLogNode, n.right, tabLevel+1, printer)
 	printer("\n")
 }
 
-func (n *AVLTNode[K, V]) toStringTabbed(printer func(string)) {
+func (n *AVLTNode[K, V]) toStringTabbed(fullLogNode bool, printer func(string)) {
 	var sb strings.Builder
-	sb.WriteString("Node [ height= ")
-	sb.WriteString(strconv.Itoa(n.height))
-	sb.WriteString(" ; key= <<")
+	sb.WriteString("Node [ ")
+	sb.WriteString("key= <<")
 	sb.WriteString(fmt.Sprint(n.keyVal.key))
-	sb.WriteString(">> ;; size left= ")
-	sb.WriteString(strconv.Itoa(n.sizeLeft))
-	sb.WriteString(" ; size right= ")
-	sb.WriteString(strconv.Itoa(n.sizeRight))
-	sb.WriteString(" ;; father's key= <<")
-	sb.WriteString(fmt.Sprint(n.father.keyVal.key))
-	sb.WriteString(">> ... am I NIL? ")
-	sb.WriteString(fmt.Sprint(n.father == n))
+	sb.WriteString(">>")
+	if fullLogNode {
+		sb.WriteString(" ; height= ")
+		sb.WriteString(strconv.Itoa(n.height))
+		sb.WriteString(" ;; size left= ")
+		sb.WriteString(strconv.Itoa(n.sizeLeft))
+		sb.WriteString(" ; size right= ")
+		sb.WriteString(strconv.Itoa(n.sizeRight))
+		sb.WriteString(" ;; father's key= <<")
+		sb.WriteString(fmt.Sprint(n.father.keyVal.key))
+		sb.WriteString(">> ... am I NIL? ")
+		sb.WriteString(fmt.Sprint(n.father == n))
+		sb.WriteString(" ;; next-in-order's key= <<")
+		sb.WriteString(fmt.Sprint(n.nextInOrder.keyVal.key))
+		sb.WriteString(">> ;; prev-in-order's key= <<")
+		sb.WriteString(fmt.Sprint(n.prevInOrder.keyVal.key))
+		sb.WriteString(">> ;; next-chronological's key= <<")
+		sb.WriteString(fmt.Sprint(n.nextInserted.keyVal.key))
+		sb.WriteString(">> ;; prev-chronological's key= <<")
+		sb.WriteString(fmt.Sprint(n.prevInserted.keyVal.key))
+		sb.WriteString(">>")
+	}
 	sb.WriteString(" ]")
 	printer(sb.String())
 }
@@ -541,21 +546,18 @@ func (n *AVLTNode[K, V]) toStringTabbed(printer func(string)) {
 
 //
 
-func NewAVLTree[K any, V any](keyZeroValue K, valueZeroValue V, keyExtractor KeyExtractor[K, V], comparator Comparator[K]) (*AVLTree[K, V], error) {
-	if keyExtractor == nil {
+func NewAVLTree[K any, V any](avlTreeConstructorParams AVLTreeConstructorParams[K, V]) (*AVLTree[K, V], error) {
+	if avlTreeConstructorParams.KeyExtractor == nil {
 		return nil, errors.New("key extractor must not be null")
 	}
-	if comparator == nil {
+	if avlTreeConstructorParams.Comparator == nil {
 		return nil, errors.New("comparator must not be null")
 	}
 	t := new(AVLTree[K, V])
-	t.keyZeroValue = keyZeroValue
-	t.valueZeroValue = valueZeroValue
-	t.comparator = comparator
-	t.keyExtractor = keyExtractor
+	t.avlTreeConstructorParams = avlTreeConstructorParams
 	t.size = 0
 	t._NIL = nil
-	_nil := t.newNode(keyZeroValue, valueZeroValue)
+	_nil := t.newNode(avlTreeConstructorParams.KeyZeroValue, avlTreeConstructorParams.ValueZeroValue)
 	t._NIL = _nil
 	_nil.father = _nil
 	_nil.left = _nil
@@ -572,7 +574,7 @@ func NewAVLTree[K any, V any](keyZeroValue K, valueZeroValue V, keyExtractor Key
 	return t, nil
 }
 
-func (t *AVLTree[K, V]) Size() int {
+func (t *AVLTree[K, V]) Size() int64 {
 	return t.size
 }
 
@@ -636,7 +638,7 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
 	}
 }
 
-func (t *AVLTree[K, V]) StringInto(printer func(string)) {
+func (t *AVLTree[K, V]) StringInto(fullLogNode bool, printer func(string)) {
 	printer("AVL Tree ")
 	if t == nil {
 		printer("\t- NULL!")
@@ -646,19 +648,22 @@ func (t *AVLTree[K, V]) StringInto(printer func(string)) {
 		printer("\t- empty")
 	}
 	printer("of size= ")
-	printer(strconv.Itoa(t.size))
+	printer(strconv.FormatInt(t.size, 10))
 	printer("; :\n")
-	t.toStringTabbed(t.root, 0, printer)
+	t.toStringTabbed(fullLogNode, t.root, 0, printer)
+}
+func (t *AVLTree[K, V]) StringLogginFull(fullLogNode bool) string {
+	var sb strings.Builder
+	t.StringInto(fullLogNode, func(s string) { sb.WriteString(s) })
+	return sb.String()
 }
 func (t *AVLTree[K, V]) String() string {
-	var sb strings.Builder
-	t.StringInto(func(s string) { sb.WriteString(s) })
-	return sb.String()
+	return t.StringLogginFull(true)
 }
 
 func (n *AVLTNode[K, V]) String() string {
 	var sb strings.Builder
-	n.toStringTabbed(func(s string) { sb.WriteString(s) })
+	n.toStringTabbed(true, func(s string) { sb.WriteString(s) })
 	return sb.String()
 }
 
