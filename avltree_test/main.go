@@ -47,12 +47,24 @@ func printAVLTree(t *avltree.AVLTree[int, *TestData]) {
 	fmt.Printf("t:\n%v\n;\n\n and t's NIL:\n %v\n", t, t.NILL())
 }
 
+func printForEach(id int, td *TestData) {
+	fmt.Printf("%s, ", td.String())
+}
+
+//
+
 func main() {
 	td := new(TestData)
 	td.id = -7
 	td.text = "HELLO NULL STRING"
 	fmt.Printf("null data: %v\n", td)
 
+	forEaches := []avltree.ForEachMode{
+		avltree.InOrder,
+		avltree.ReverseInOrder,
+		avltree.Queue,
+		avltree.Stack,
+	}
 	datasets_k := [][]int{
 		{88, 7, 100}, //
 		{5, 4, 3, 2, 100, 1, 80, 1111, 44, 22, 99, 84, 83},
@@ -86,6 +98,12 @@ func main() {
 			fmt.Printf("\n\n putting the %d-ish item: %v\n", i, td_temp)
 			t.Put(id, td_temp)
 			printAVLTree(t)
+			fmt.Println("-------\ntesting all for-eaches:")
+			for ife, fe := range forEaches {
+				fmt.Printf("- - for-eacher #%d : %d\n\t =", ife, fe)
+				t.ForEach(fe, printForEach)
+				fmt.Println()
+			}
 		}
 	}
 

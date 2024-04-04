@@ -159,15 +159,16 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		c = t.comparator(k, x.keyVal.key)
 		if c == 0 {
 			/*
-				if (behaviour == MapTreeAVL.BehaviourOnKeyCollision.Replace) {
-					oldValue = x.v
+				if (behaviour == BehaviourOnKeyCollision.Replace) {
+					oldValue = x.keyVal.value
 					x.k = k
-					x.v = v
-					return oldValue
-				} else if (behaviour == MapTreeAVL.BehaviourOnKeyCollision.KeepPrevious)
-					return x.v
-				else // if (behavior == MapTreeAVL.BehaviorOnKeyCollision.AddItsNotASet) //
-						// -> add
+					x.keyVal.value = v
+					stillSearching = false
+				} else if (behaviour == BehaviourOnKeyCollision.KeepPrevious)
+					stillSearching = false
+					return x.keyVal.value
+				else // if (behavior == BehaviorOnKeyCollision.AddItsNotASet) //
+					// -> add
 					c = -1
 			*/
 			stillSearching = false
@@ -243,7 +244,6 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 }
 
 func (t *AVLTree[K, V]) insertFixup(n *AVLTNode[K, V]) {
-	// TODO : paste ....	super.insertFixup(nnn)
 	hl := int(0)
 	hr := int(0)
 	delta := int(0)
@@ -313,7 +313,6 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 		if nSide.right.height > nSide.left.height {
 			// three-rotation : ignoring this difference would cause the tree to be
 			// umbalanced again
-			//final NodeAVL_Indexable a, b, c
 			a := n
 			b := nSide
 			c := b.right
@@ -365,7 +364,6 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 		// left
 		nSide = n.right
 		if nSide.left.height > nSide.right.height {
-			//final NodeAVL_Indexable a, b, c
 			a := n
 			b := nSide
 			c := b.left
@@ -583,6 +581,59 @@ func (t *AVLTree[K, V]) NILL() interface{} { return t._NIL }
 func (t *AVLTree[K, V]) Put(key K, value V) (V, error) {
 	n := t.newNode(key, value)
 	return t.put(n)
+}
+
+func (t *AVLTree[K, V]) IsEmpty() bool {
+	return t == nil || t.root == t._NIL
+}
+
+func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
+	if t.IsEmpty() || action == nil {
+		return
+	}
+	canContinue := true
+	switch mode {
+	case InOrder:
+		{
+			current := t.minValue
+			start := current
+			for canContinue { // do-while loop
+				action(current.keyVal.key, current.keyVal.value)
+				current = current.nextInOrder
+				canContinue = current != start
+			}
+		}
+	case ReverseInOrder:
+		{
+			current := t.minValue.prevInOrder
+			start := current
+			for canContinue { // do-while loop
+				action(current.keyVal.key, current.keyVal.value)
+				current = current.prevInOrder
+				canContinue = current != start
+			}
+		}
+	case Stack:
+		{
+			current := t.firstInserted.prevInserted
+			start := current
+			for canContinue { // do-while loop
+				action(current.keyVal.key, current.keyVal.value)
+				current = current.prevInserted
+				canContinue = current != start
+			}
+		}
+	case Queue:
+		{
+			current := t.firstInserted
+			start := current
+			for canContinue { // do-while loop
+				action(current.keyVal.key, current.keyVal.value)
+				current = current.nextInserted
+				canContinue = current != start
+			}
+		}
+	}
 }
 
 func (t *AVLTree[K, V]) StringInto(printer func(string)) {
