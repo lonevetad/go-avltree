@@ -20,7 +20,7 @@ func extract(t *TestData) int {
 	return t.id
 }
 
-func compare(i1 int, i2 int) int {
+func compare(i1 int, i2 int) int64 {
 	if i1 > i2 {
 		return 1
 	}
@@ -55,12 +55,12 @@ func printForEach(id int, td *TestData) {
 
 func main() {
 	td := new(TestData)
-	td.id = -7
+	td.id = -666
 	td.text = "HELLO NULL STRING"
 	fmt.Printf("null data: %v\n", td)
 	avlTreeConstructorParams := avltree.AVLTreeConstructorParams[int, *TestData]{}
 	avlTreeConstructorParams.KeyCollisionBehavior = avltree.Replace
-	avlTreeConstructorParams.KeyZeroValue = -1
+	avlTreeConstructorParams.KeyZeroValue = td.id
 	avlTreeConstructorParams.ValueZeroValue = td
 	avlTreeConstructorParams.KeyExtractor = extract
 	avlTreeConstructorParams.Comparator = compare
@@ -113,6 +113,27 @@ func main() {
 				fmt.Println()
 			}
 		}
+
+		fmt.Println("\n now removing key: 3")
+		oldVal, err := t.Remove(3)
+		if err != nil {
+			fmt.Printf("ERROR:  %s\n", err)
+		} else {
+			fmt.Printf("deleted value %v\n", oldVal)
+			printAVLTree(t)
+			fmt.Println()
+			fmt.Println("-------\ntesting all for-eaches:")
+			for ife, fe := range forEaches {
+				fmt.Printf("- - for-eacher #%d : %d\n\t =", ife, fe)
+				err = t.ForEach(fe, printForEach)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Println()
+			}
+			fmt.Println()
+		}
+		fmt.Println()
 	}
 
 	fmt.Println("finish")
