@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-const DEPTH_INITIAL int = -1
-const INTEGER_MAX_VALUE int = 2147483647
+const DEPTH_INITIAL int64 = -1
+const INTEGER_MAX_VALUE int64 = 9223372036854775807
 
 type ForEachMode byte
 
@@ -19,7 +19,12 @@ const (
 	Stack          ForEachMode = 3
 )
 
-// TODO: an enum for "for each" order"
+type KeyCollisionBehavior byte
+
+const (
+	Replace         KeyCollisionBehavior = 0
+	IgnoreInsertion KeyCollisionBehavior = 1
+)
 
 // just an alias, since the compiler can't properly parse the Comparator's generic:
 // "K *any" is interpreted as a multiplication
@@ -36,13 +41,13 @@ type KeyVal[K any, V any] struct {
 
 type KeyExtractor[K any, V any] func(value V) K
 
-type Comparator[K any] func(k1 K, k2 K) int
+type Comparator[K any] func(k1 K, k2 K) int64
 
 type AVLTNode[K any, V any] struct {
 	keyVal       KeyVal[K, V]
-	height       int
-	sizeLeft     int
-	sizeRight    int
+	height       int64
+	sizeLeft     int64
+	sizeRight    int64
 	father       *AVLTNode[K, V]
 	left         *AVLTNode[K, V]
 	right        *AVLTNode[K, V]
@@ -52,16 +57,21 @@ type AVLTNode[K any, V any] struct {
 	nextInserted *AVLTNode[K, V]
 }
 
+type AVLTreeConstructorParams[K any, V any] struct {
+	KeyCollisionBehavior KeyCollisionBehavior
+	KeyZeroValue         K
+	ValueZeroValue       V
+	KeyExtractor         KeyExtractor[K, V]
+	Comparator           Comparator[K]
+}
+
 type AVLTree[K any, V any] struct {
-	size           int
-	keyZeroValue   K
-	valueZeroValue V
-	keyExtractor   KeyExtractor[K, V]
-	comparator     Comparator[K]
-	root           *AVLTNode[K, V]
-	_NIL           *AVLTNode[K, V]
-	minValue       *AVLTNode[K, V] // used for optimizations
-	firstInserted  *AVLTNode[K, V]
+	size                     int64
+	avlTreeConstructorParams AVLTreeConstructorParams[K, V]
+	root                     *AVLTNode[K, V]
+	_NIL                     *AVLTNode[K, V]
+	minValue                 *AVLTNode[K, V] // used for optimizations
+	firstInserted            *AVLTNode[K, V]
 }
 
 //
@@ -106,19 +116,45 @@ func (t *AVLTree[K, V]) removeToLastInserted(n *AVLTNode[K, V]) {
 		return
 	}
 	if n == t.firstInserted {
-		t.firstInserted = t.firstInserted.prevInserted
+		t.firstInserted = t.firstInserted.nextInserted
 	}
 
 	n.prevInserted.nextInserted = n.nextInserted
 	n.nextInserted.prevInserted = n.prevInserted
 }
+func (t *AVLTree[K, V]) cleanNil() {
+	t._NIL.father = t._NIL
+	t._NIL.left = t._NIL
+	t._NIL.right = t._NIL
+	t._NIL.prevInOrder = t._NIL
+	t._NIL.nextInOrder = t._NIL
+	t._NIL.prevInserted = t._NIL
+	t._NIL.nextInserted = t._NIL
+	t._NIL.height = DEPTH_INITIAL
+	t._NIL.sizeLeft = 0
+	t._NIL.sizeRight = 0
+}
+
+func (t *AVLTree[K, V]) getNode(k K) *AVLTNode[K, V] {
+	notFound := true
+	n := t.root
+	c := int64(0)
+	for notFound && n != t._NIL {
+		c = t.avlTreeConstructorParams.Comparator(k, n.keyVal.key)
+		notFound = c != 0
+		if notFound {
+			if c > 0 {
+				n = n.right
+			} else {
+				n = n.left
+			}
+		}
+	}
+	return n
+}
 
 func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
-	prevSize := int(0)
-
-	fmt.Printf("putting .... n: %v\n", n)
 	if t.size == 0 || t.root == t._NIL {
-		fmt.Print("FIRST PUT!")
 		t.size = 1
 		t.root = n
 		t.minValue = n
@@ -132,7 +168,6 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		t._NIL.nextInOrder = t._NIL
 		t._NIL.prevInOrder = t._NIL
 
-		//super.put(n)
 		// tracking the chronological order
 		t.firstInserted = n
 		// self linking
@@ -140,46 +175,40 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		n.prevInserted = n
 		t._NIL.nextInserted = t._NIL
 		t._NIL.prevInserted = t._NIL
-		return t.valueZeroValue, nil
+		return t.avlTreeConstructorParams.ValueZeroValue, nil
 	}
 
-	prevSize = t.size
 	k := n.keyVal.key
 	v := n.keyVal.value
-	// v = super.put(n)
 
 	//x is the iterator, next is the next node to move on
-	next := t.root
-	x := t.root // must not be set to NIL, due to the while condition
+	next := t.root // must not be set to NIL, due to the while condition
+	x := t.root
+	c := int64(0)
 	// descend the tree
-	c := int(0)
 	stillSearching := true
 	for stillSearching && (next != t._NIL) {
 		x = next
-		c = t.comparator(k, x.keyVal.key)
+		c = t.avlTreeConstructorParams.Comparator(k, x.keyVal.key)
 		if c == 0 {
-			/*
-				if (behaviour == BehaviourOnKeyCollision.Replace) {
-					oldValue = x.keyVal.value
-					x.k = k
-					x.keyVal.value = v
-					stillSearching = false
-				} else if (behaviour == BehaviourOnKeyCollision.KeepPrevious)
-					stillSearching = false
-					return x.keyVal.value
-				else // if (behavior == BehaviorOnKeyCollision.AddItsNotASet) //
-					// -> add
-					c = -1
-			*/
-			stillSearching = false
-			oldValue := x.keyVal.value
-			x.keyVal.key = k
-			x.keyVal.value = v
-
-			fmt.Print("substituting ....")
-			t.removeToLastInserted(n)
-			t.pushToLastInserted(n)
-			return oldValue, nil
+			if t.avlTreeConstructorParams.KeyCollisionBehavior == Replace {
+				stillSearching = false
+				oldValue := x.keyVal.value
+				x.keyVal.key = k
+				x.keyVal.value = v
+				// since the node has been modified,
+				t.removeToLastInserted(x)
+				t.pushToLastInserted(x)
+				return oldValue, nil
+			} else if t.avlTreeConstructorParams.KeyCollisionBehavior == IgnoreInsertion {
+				return x.keyVal.value, nil
+			} else {
+				// if (behavior == BehaviorOnKeyCollision.AddItsNotASet) // -> add
+				// stillSearching = false
+				// c = -1
+				return t.avlTreeConstructorParams.ValueZeroValue,
+					fmt.Errorf("unexpected key collision behaviour: %b", t.avlTreeConstructorParams.KeyCollisionBehavior)
+			}
 		}
 		if stillSearching {
 			if c > 0 {
@@ -190,6 +219,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 	}
 
+	//the new node has been placed as a leaf, check for errors
 	if next == t._NIL {
 		// end of tree reached: x is a leaf
 		if c > 0 {
@@ -199,14 +229,13 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 		n.father = x
 	} else {
-		return t.valueZeroValue, errors.New("NOT A END?")
+		return t.avlTreeConstructorParams.ValueZeroValue, errors.New("NOT A END?")
 	}
 	if t.size != INTEGER_MAX_VALUE {
 		t.size++
 	}
 
 	// adjust links for iterators
-	// minValue
 	if c > 0 {
 		n.prevInOrder = x
 		x.nextInOrder.prevInOrder = n
@@ -222,7 +251,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		}
 	}
 
-	// don't use n: it's height is 0 and it's connected only to NIL -> is balanced
+	// we don't use n: it's height is 0 and it's connected only to NIL -> is balanced
 	t.insertFixup(x)
 	t._NIL.father = t._NIL
 	t._NIL.left = t._NIL
@@ -230,23 +259,17 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 	t._NIL.nextInOrder = t._NIL
 	t._NIL.prevInOrder = t._NIL
 
-	if prevSize != INTEGER_MAX_VALUE && prevSize != t.size {
-		// node really added
-		n.prevInserted = t.firstInserted.prevInserted
-		n.nextInserted = t.firstInserted
-		t.firstInserted.prevInserted.nextInserted = n
-		t.firstInserted.prevInserted = n
-	}
-
+	// track chronological insertion
+	t.pushToLastInserted(n)
 	t._NIL.nextInserted = t._NIL
 	t._NIL.prevInserted = t._NIL
 	return v, nil
 }
 
 func (t *AVLTree[K, V]) insertFixup(n *AVLTNode[K, V]) {
-	hl := int(0)
-	hr := int(0)
-	delta := int(0)
+	hl := int64(0)
+	hr := int64(0)
+	delta := int64(0)
 	temp := n
 
 	for n != t._NIL {
@@ -293,17 +316,12 @@ func (t *AVLTree[K, V]) insertFixup(n *AVLTNode[K, V]) {
 			n = n.father.father
 		}
 	}
-	t._NIL.sizeLeft = -1 // just an invalid value
-	t._NIL.sizeRight = -1
-	t._NIL.height = DEPTH_INITIAL
-
-	t._NIL.nextInOrder = t._NIL
-	t._NIL.prevInOrder = t._NIL
+	t.cleanNil()
 }
 
 func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
-	hl := int(0)
-	hr := int(0)
+	hl := int64(0)
+	hr := int64(0)
 
 	nSide := n // dummy assignment
 	oldFather := n.father
@@ -442,6 +460,153 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 	}
 }
 
+func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
+	if n == nil || t.IsEmpty() || n == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, nil // still might get a null-pointer-error
+	}
+
+	v := n.keyVal.value
+	if t.size == 1 {
+		if t.root != n && t.avlTreeConstructorParams.Comparator(t.root.keyVal.key, n.keyVal.key) == 0 {
+			v = t.root.keyVal.value
+		}
+		t.size = 0
+		t.root = t._NIL
+		//cleanup
+		t.minValue = t._NIL
+		t.firstInserted = t._NIL
+		t.cleanNil()
+		return v, nil
+	}
+
+	prevSize := t.size
+	// the real deletion
+	ntbdFather := n.father
+	actionPosition := ntbdFather
+	notNilFather := ntbdFather != t._NIL
+	hasLeft := n.left != t._NIL
+	hasRight := n.right != t._NIL
+
+	fmt.Printf("\n\n ON REMOVING -> current node: %v\n\thas left: %t, has right: %t\n", n.keyVal.key, hasLeft, hasRight)
+	if hasLeft && hasRight {
+		successor := n.nextInOrder // 33
+
+		fmt.Println("has both left and right")
+		fmt.Printf("successor: < k: %v> , isLeaf: %t\n", successor.keyVal.key, t.isLeaf(successor))
+		fmt.Printf("successor father: < k: %v>\n", successor.father.keyVal.key)
+
+		// shift values
+		n.keyVal.key = successor.keyVal.key
+		n.keyVal.value = successor.keyVal.value
+		actionPosition = successor
+
+		// but first, prepare non-inOrder optimization's links
+		nPrevInserted := n.prevInserted
+		nNextInserted := n.nextInserted
+		successorSPrevInserted := successor.prevInserted
+		successorSNextInserted := successor.nextInserted
+
+		t.remove(successor)
+		//t.updateOptimizationsOnRemove(n, successor)
+		// un-link "n"
+		nPrevInserted.nextInserted = nNextInserted
+		nNextInserted.prevInserted = nPrevInserted
+		// re-link successors' neighbor
+		successorSPrevInserted.nextInserted = n
+		n.prevInserted = successorSPrevInserted
+		successorSNextInserted.prevInserted = n
+		n.nextInserted = successorSNextInserted
+
+		t.recalculateHeight(successor, true)
+		t.recalculateSizes(successor, true)
+
+	} else if hasLeft || hasRight {
+		// just one child -> that child is a leaf
+		// otherwise, a rotation would have happened while insertion
+		// causing this node to become a fully-branched node (2 children)
+
+		var child *AVLTNode[K, V]
+		if hasLeft {
+			child = n.left
+			n.left = t._NIL
+		} else {
+			child = n.right
+			n.right = t._NIL
+		}
+		// just shilft values
+		n.keyVal.key = child.keyVal.key
+		n.keyVal.value = child.keyVal.value
+		n.height = 0
+		n.sizeLeft = 0
+		n.sizeRight = 0
+		child.father = t._NIL
+		actionPosition = n
+
+		t.updateOptimizationsOnRemove(n, child)
+	} else {
+		// leaf -> nodeToUnlink = n
+		if notNilFather {
+			if ntbdFather.left == n {
+				ntbdFather.left = t._NIL
+				ntbdFather.sizeLeft = 0
+			} else {
+				ntbdFather.right = t._NIL
+				ntbdFather.sizeRight = 0
+			}
+			// adjust links
+			t.unlinkUpdateOptimizations(n)
+		} else {
+			// n is both root and leaf -> empty
+			t.root = t._NIL
+			t.size = 0
+			// other clean-ups will be performed later
+			// now the tree is empty
+			actionPosition = t._NIL
+		}
+	}
+
+	t.cleanNil()
+
+	//then, balance
+	if actionPosition != t._NIL {
+		t.recalculateHeight(actionPosition, true)
+		t.recalculateSizes(actionPosition, true)
+		t.insertFixup(actionPosition)
+	}
+
+	t.size--
+	if t.size == 0 || t.IsEmpty() {
+		t.root = t._NIL
+		t.size = 0
+		t.minValue = t._NIL
+		t.firstInserted = t._NIL
+	} else if t.root == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, fmt.Errorf("BUG: root should not be nil since size is not zero")
+	}
+
+	// adjusting connections
+	if t.size == 1 {
+		t.root.father = t._NIL
+		t.minValue = t.root
+		t.root.nextInOrder = t.root
+		t.root.prevInOrder = t.root
+		t.firstInserted = t.root
+		t.root.nextInserted = t.root
+		t.root.prevInserted = t.root
+	}
+
+	if prevSize == INTEGER_MAX_VALUE {
+		prevSize = 1 + t.root.sizeLeft + t.root.sizeRight
+		if prevSize < 0 || t.root.sizeLeft < 0 || t.root.sizeRight < 0 {
+			prevSize = INTEGER_MAX_VALUE
+		}
+		t.size = prevSize
+	}
+	t.cleanNil()
+
+	return v, nil
+}
+
 func (t *AVLTree[K, V]) index(n *AVLTNode[K, V]) int {
 	i := 0
 	if n.sizeLeft > 0 {
@@ -465,26 +630,165 @@ func (t *AVLTree[K, V]) index(n *AVLTNode[K, V]) int {
 	return i
 }
 
-/*
-func (n *AVLTNode[K, V]) String() string {
-	var sb strings.Builder
-	sb.WriteString("k:")
-	sb.WriteString(n.keyVal.key.String())
-	sb.WriteString(" - v:")
-	sb.WriteString(n.keyVal.value)
-	sb.WriteString(",h:")
-	sb.WriteString(n.height)
-	sb.WriteString(",f:")
-	sb.WriteString(n.father.keyVal.key)
-	sb.WriteString(", sl:")
-	sb.WriteString(n.sizeLeft)
-	sb.WriteString(",sr:")
-	sb.WriteString(n.sizeRight)
-	return sb.String()
+func (t *AVLTree[K, V]) isLeaf(n *AVLTNode[K, V]) bool {
+	return t == nil || n == nil || (n.left == t._NIL && n.right == t._NIL)
 }
-*/
 
-func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer func(string)) {
+func (t *AVLTree[K, V]) recalculateHeight(n *AVLTNode[K, V], recurseToRoot bool) {
+	if t._NIL == n {
+		return
+	}
+	var h int64
+	shouldContinue := true
+	for shouldContinue {
+		h = DEPTH_INITIAL
+		if n.left != t._NIL {
+			h = n.left.height
+		}
+		if n.right != t._NIL && n.right.height > h {
+			h = n.right.height
+		}
+		n.height = 1 + h
+
+		if recurseToRoot {
+			n = n.father
+			shouldContinue = (n != t._NIL)
+		} else {
+			shouldContinue = false
+		}
+
+	}
+}
+func (t *AVLTree[K, V]) recalculateSizes(n *AVLTNode[K, V], recurseToRoot bool) {
+	if t._NIL == n {
+		return
+	}
+	shouldContinue := true
+	for shouldContinue {
+		if n.left != t._NIL {
+			n.sizeLeft = 1 + n.left.sizeLeft + n.left.sizeRight
+		} else {
+			n.sizeLeft = 0
+		}
+		if n.right != t._NIL {
+			n.sizeRight = 1 + n.right.sizeLeft + n.right.sizeRight
+		} else {
+			n.sizeRight = 0
+		}
+
+		if recurseToRoot {
+			n = n.father
+			shouldContinue = (n != t._NIL)
+		} else {
+			shouldContinue = false
+		}
+
+	}
+}
+
+func (n *AVLTNode[K, V]) unlinkAll() {
+	n.prevInOrder.nextInOrder = n.nextInOrder
+	n.nextInOrder.prevInOrder = n.prevInOrder
+
+	n.prevInserted.nextInserted = n.nextInserted
+	n.nextInserted.prevInserted = n.prevInserted
+}
+
+func (t *AVLTree[K, V]) unlinkUpdateOptimizations(n *AVLTNode[K, V]) {
+	if t.minValue == n {
+		t.minValue = n.nextInOrder
+	}
+	if t.firstInserted == n {
+		t.firstInserted = n.nextInserted
+	}
+	n.unlinkAll()
+}
+
+func (t *AVLTree[K, V]) updateOptimizationsOnRemove(nWillBeSwapped *AVLTNode[K, V], childWillBeDestroyed *AVLTNode[K, V]) {
+	// NOTE: I'll leave the internal comments just to reference
+	// and explain the thought processes
+
+	// CHRONOLOGICAL ORDERING (FIFO)
+
+	if t.firstInserted == nWillBeSwapped {
+		t.firstInserted = nWillBeSwapped.nextInserted
+
+		// A.1)
+		// the "n" node should be forgotten since it will be removed
+		// so, at first, let unlink it
+
+		// A.2)
+		// since "child" will take "N"'s place, shift the links towards
+		// that node instance ...
+
+		// A.3)
+		// ... and the "new-child"'s links towards the previous "chronological-neighbour"
+	} else if t.firstInserted == childWillBeDestroyed {
+		t.firstInserted = nWillBeSwapped
+
+		// B.1)
+		// those who were pointing to "child" still need to point to the
+		// same <key; value> pair, so redirect them to "n"
+
+		// B.2)
+		// those who were pointing to "n" needs to "forget" it
+		// since it will be removed
+
+		// B.3)
+		// the "child" <key, value> pair needs to preserve the insertion
+		// order, so let's keep it
+	}
+	// A.1 & B.2
+	nWillBeSwapped.prevInserted.nextInserted = nWillBeSwapped.nextInserted
+	nWillBeSwapped.nextInserted.prevInserted = nWillBeSwapped.prevInserted
+
+	// A.2 & B.1
+	childWillBeDestroyed.prevInserted.nextInserted = nWillBeSwapped
+	childWillBeDestroyed.nextInserted.prevInserted = nWillBeSwapped
+
+	// A.3 & B.3
+	nWillBeSwapped.prevInserted = childWillBeDestroyed.prevInserted
+	nWillBeSwapped.nextInserted = childWillBeDestroyed.nextInserted
+
+	// cleanse the "old child"
+	childWillBeDestroyed.prevInserted = t._NIL
+	childWillBeDestroyed.nextInserted = t._NIL
+
+	// MIN-VALUE
+
+	if t.minValue == childWillBeDestroyed {
+		// redirect links towards "n", since the "min key" has to remain the same
+		t.minValue = nWillBeSwapped
+	} else if t.minValue == nWillBeSwapped {
+		// just update the value
+		t.minValue = nWillBeSwapped.nextInOrder
+	}
+	/*
+		// "n"'s neighbour needs to forget that node
+		nWillBeSwapped.prevInOrder.nextInOrder = nWillBeSwapped.nextInOrder
+		nWillBeSwapped.nextInOrder.prevInOrder = nWillBeSwapped.prevInOrder
+
+		// the "new child" needs to remember its previous neighbours
+		nWillBeSwapped.prevInOrder = childWillBeDestroyed.prevInOrder
+		nWillBeSwapped.nextInOrder = childWillBeDestroyed.nextInOrder
+
+		// the "old child" neighbours now need to track the right node: "n"
+		childWillBeDestroyed.nextInOrder.prevInOrder = nWillBeSwapped
+		childWillBeDestroyed.prevInOrder.nextInOrder = nWillBeSwapped
+	*/
+	//unlink the "child"
+	childWillBeDestroyed.nextInOrder.prevInOrder = childWillBeDestroyed.prevInOrder
+	childWillBeDestroyed.prevInOrder.nextInOrder = childWillBeDestroyed.nextInOrder
+
+	// the "Old n" node instance will hold the "child"'s data,
+	// so on need to update links
+
+	// cleanse the "old child"
+	childWillBeDestroyed.prevInOrder = t._NIL
+	childWillBeDestroyed.nextInOrder = t._NIL
+}
+
+func (t *AVLTree[K, V]) toStringTabbed(fullLogNode bool, n *AVLTNode[K, V], tabLevel int, printer func(string)) {
 	var sb strings.Builder
 	for i := 0; i < tabLevel; i++ {
 		sb.WriteString("  ")
@@ -496,12 +800,11 @@ func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer 
 		return
 	}
 
-	n.toStringTabbed(func(s string) { sb.WriteString(s) })
-	sb.WriteString(" -- index= ")
+	sb.WriteString(" -- at index= ")
 	sb.WriteString(strconv.Itoa(t.index(n)))
-	sb.WriteString(" ; father's key= <<")
-	sb.WriteString(fmt.Sprint(n.father.keyVal.key))
-	sb.WriteString(">> ;; value= <<")
+	sb.WriteString(" we have ")
+	n.toStringTabbed(fullLogNode, func(s string) { sb.WriteString(s) })
+	sb.WriteString(" ;; and value= <<")
 	val, ok := any(n.keyVal.value).(*AVLTree[K, V])
 	if ok && val == t {
 		sb.WriteString(" SELF TREE - RECURSION AVOIDED ")
@@ -511,26 +814,37 @@ func (t *AVLTree[K, V]) toStringTabbed(n *AVLTNode[K, V], tabLevel int, printer 
 	sb.WriteString("\n")
 	printer(sb.String())
 	sb.Reset() // make it invalid / unusable
-	t.toStringTabbed(n.left, tabLevel+1, printer)
+	t.toStringTabbed(fullLogNode, n.left, tabLevel+1, printer)
 	printer("\n")
-	t.toStringTabbed(n.right, tabLevel+1, printer)
+	t.toStringTabbed(fullLogNode, n.right, tabLevel+1, printer)
 	printer("\n")
 }
 
-func (n *AVLTNode[K, V]) toStringTabbed(printer func(string)) {
+func (n *AVLTNode[K, V]) toStringTabbed(fullLogNode bool, printer func(string)) {
 	var sb strings.Builder
-	sb.WriteString("Node [ height= ")
-	sb.WriteString(strconv.Itoa(n.height))
-	sb.WriteString(" ; key= <<")
+	sb.WriteString("Node [ ")
+	sb.WriteString("key= <<")
 	sb.WriteString(fmt.Sprint(n.keyVal.key))
-	sb.WriteString(">> ;; size left= ")
-	sb.WriteString(strconv.Itoa(n.sizeLeft))
-	sb.WriteString(" ; size right= ")
-	sb.WriteString(strconv.Itoa(n.sizeRight))
-	sb.WriteString(" ;; father's key= <<")
-	sb.WriteString(fmt.Sprint(n.father.keyVal.key))
-	sb.WriteString(">> ... am I NIL? ")
-	sb.WriteString(fmt.Sprint(n.father == n))
+	sb.WriteString(">>")
+	if fullLogNode {
+		sb.WriteString(" ; height= ")
+		sb.WriteString(strconv.FormatInt(n.height, 10))
+		sb.WriteString(" ;; size left= ")
+		sb.WriteString(strconv.FormatInt(n.sizeLeft, 10))
+		sb.WriteString(" ; size right= ")
+		sb.WriteString(strconv.FormatInt(n.sizeRight, 10))
+		sb.WriteString(" ;; father's key= <<")
+		sb.WriteString(fmt.Sprint(n.father.keyVal.key))
+		sb.WriteString(">> ;; next-in-order's key= <<")
+		sb.WriteString(fmt.Sprint(n.nextInOrder.keyVal.key))
+		sb.WriteString(">> ;; prev-in-order's key= <<")
+		sb.WriteString(fmt.Sprint(n.prevInOrder.keyVal.key))
+		sb.WriteString(">> ;; next-chronological's key= <<")
+		sb.WriteString(fmt.Sprint(n.nextInserted.keyVal.key))
+		sb.WriteString(">> ;; prev-chronological's key= <<")
+		sb.WriteString(fmt.Sprint(n.prevInserted.keyVal.key))
+		sb.WriteString(">>")
+	}
 	sb.WriteString(" ]")
 	printer(sb.String())
 }
@@ -541,29 +855,21 @@ func (n *AVLTNode[K, V]) toStringTabbed(printer func(string)) {
 
 //
 
-func NewAVLTree[K any, V any](keyZeroValue K, valueZeroValue V, keyExtractor KeyExtractor[K, V], comparator Comparator[K]) (*AVLTree[K, V], error) {
-	if keyExtractor == nil {
+func NewAVLTree[K any, V any](avlTreeConstructorParams AVLTreeConstructorParams[K, V]) (*AVLTree[K, V], error) {
+	if avlTreeConstructorParams.KeyExtractor == nil {
 		return nil, errors.New("key extractor must not be null")
 	}
-	if comparator == nil {
+	if avlTreeConstructorParams.Comparator == nil {
 		return nil, errors.New("comparator must not be null")
 	}
 	t := new(AVLTree[K, V])
-	t.keyZeroValue = keyZeroValue
-	t.valueZeroValue = valueZeroValue
-	t.comparator = comparator
-	t.keyExtractor = keyExtractor
+	t.avlTreeConstructorParams = avlTreeConstructorParams
 	t.size = 0
 	t._NIL = nil
-	_nil := t.newNode(keyZeroValue, valueZeroValue)
+	_nil := t.newNode(avlTreeConstructorParams.KeyZeroValue, avlTreeConstructorParams.ValueZeroValue)
 	t._NIL = _nil
-	_nil.father = _nil
-	_nil.left = _nil
-	_nil.right = _nil
-	_nil.prevInserted = _nil
-	_nil.nextInserted = _nil
-	_nil.height = DEPTH_INITIAL
 	t.root = _nil
+	t.cleanNil()
 
 	// other optimization-based setup
 	t.firstInserted = _nil
@@ -572,7 +878,7 @@ func NewAVLTree[K any, V any](keyZeroValue K, valueZeroValue V, keyExtractor Key
 	return t, nil
 }
 
-func (t *AVLTree[K, V]) Size() int {
+func (t *AVLTree[K, V]) Size() int64 {
 	return t.size
 }
 
@@ -583,21 +889,37 @@ func (t *AVLTree[K, V]) Put(key K, value V) (V, error) {
 	return t.put(n)
 }
 
+func (t *AVLTree[K, V]) Remove(k K) (V, error) {
+	if t.root == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, nil
+	}
+	n := t.getNode(k)
+	if n == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, fmt.Errorf("key not found")
+	}
+	return t.remove(n)
+}
+
 func (t *AVLTree[K, V]) IsEmpty() bool {
 	return t == nil || t.root == t._NIL
 }
 
-func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
+func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) error {
 	if t.IsEmpty() || action == nil {
-		return
+		return nil
 	}
 	canContinue := true
+	iterMax := t.size + 1 //anti-bug
 	switch mode {
 	case InOrder:
 		{
 			current := t.minValue
 			start := current
-			for canContinue { // do-while loop
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
 				action(current.keyVal.key, current.keyVal.value)
 				current = current.nextInOrder
 				canContinue = current != start
@@ -607,7 +929,11 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
 		{
 			current := t.minValue.prevInOrder
 			start := current
-			for canContinue { // do-while loop
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
 				action(current.keyVal.key, current.keyVal.value)
 				current = current.prevInOrder
 				canContinue = current != start
@@ -617,7 +943,11 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
 		{
 			current := t.firstInserted.prevInserted
 			start := current
-			for canContinue { // do-while loop
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
 				action(current.keyVal.key, current.keyVal.value)
 				current = current.prevInserted
 				canContinue = current != start
@@ -627,16 +957,21 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) {
 		{
 			current := t.firstInserted
 			start := current
-			for canContinue { // do-while loop
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
 				action(current.keyVal.key, current.keyVal.value)
 				current = current.nextInserted
 				canContinue = current != start
 			}
 		}
 	}
+	return nil
 }
 
-func (t *AVLTree[K, V]) StringInto(printer func(string)) {
+func (t *AVLTree[K, V]) StringInto(fullLogNode bool, printer func(string)) {
 	printer("AVL Tree ")
 	if t == nil {
 		printer("\t- NULL!")
@@ -646,19 +981,22 @@ func (t *AVLTree[K, V]) StringInto(printer func(string)) {
 		printer("\t- empty")
 	}
 	printer("of size= ")
-	printer(strconv.Itoa(t.size))
+	printer(strconv.FormatInt(t.size, 10))
 	printer("; :\n")
-	t.toStringTabbed(t.root, 0, printer)
+	t.toStringTabbed(fullLogNode, t.root, 0, printer)
+}
+func (t *AVLTree[K, V]) StringLogginFull(fullLogNode bool) string {
+	var sb strings.Builder
+	t.StringInto(fullLogNode, func(s string) { sb.WriteString(s) })
+	return sb.String()
 }
 func (t *AVLTree[K, V]) String() string {
-	var sb strings.Builder
-	t.StringInto(func(s string) { sb.WriteString(s) })
-	return sb.String()
+	return t.StringLogginFull(true)
 }
 
 func (n *AVLTNode[K, V]) String() string {
 	var sb strings.Builder
-	n.toStringTabbed(func(s string) { sb.WriteString(s) })
+	n.toStringTabbed(true, func(s string) { sb.WriteString(s) })
 	return sb.String()
 }
 
@@ -670,84 +1008,3 @@ func (p *KeyVal[K, V]) PairKey() K {
 func (p *KeyVal[K, V]) PairValue() V {
 	return p.value
 }
-
-// func (n *AVLTNode[K, V]) GetKeyVal() KeyVal[K, V] { return n.keyVal }
-
-/**
- * Use with care.
- * <p>
- * {@inheritDoc}
- */
-/****
- *
- *
- *
- *
-@SuppressWarnings("unchecked")
-@Override
-protected V delete(nnn AVLTNode[K, V]) {
-	boolean hasLeft, hasRight
-	V v
-	NodeAVL_Full nToBeDeleted, succMaybeDeleted
-	if (root == NIL || nnn == NIL)
-		return null
-	v = null
-	nToBeDeleted = (NodeAVL_Full) nnn
-	v = nToBeDeleted.v
-	if (size == 1 && comp.compare(root.k, nToBeDeleted.k) == 0) {
-		v = super.delete(nToBeDeleted)
-		firstInserted = (NodeAVL_Full) NIL
-		((NodeAVL_Full) NIL).prevInserted = ((NodeAVL_Full) NIL).nextInserted = (NodeAVL_Full) NIL
-		return v
-	}
-	// real deletion starts here:
-	hasLeft = nToBeDeleted.left != NIL
-	hasRight = nToBeDeleted.right != NIL
-	succMaybeDeleted = hasRight ? (MapTreeAVLFull<K, V>.NodeAVL_Full) successorSorted(nnn) : //
-			(MapTreeAVLFull<K, V>.NodeAVL_Full) (hasLeft ? predecessorSorted(nnn) : NIL)//
-
-	v = super.delete(nnn)
-	// adjust connections
-	if (hasLeft || hasRight) {
-		if (size == 1) {
-			firstInserted = nToBeDeleted
-			nToBeDeleted.nextInserted = nToBeDeleted.prevInserted = nToBeDeleted
-		} else {
-			// nnn wasn't the removed node ...
-			// 1) unlink myself (nnn: nToBeDeleted) because that's me that should be removed
-			// 2) then I re-link myself because I took the data held by the
-			// node that has been removed in the end (succMaybeDeleted)
-			// ..1) unlink myself
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted.prevInserted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted.nextInserted
-			// 2) then adjust my links to the really-removed-nodes ..
-			nToBeDeleted.nextInserted = succMaybeDeleted.nextInserted
-			nToBeDeleted.prevInserted = succMaybeDeleted.prevInserted
-			// .. and the adjacent's nodes to point towards me
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted
-			if (succMaybeDeleted == firstInserted) { firstInserted = succMaybeDeleted.nextInserted }
-		}
-	} else {
-		if (size == 1) {
-			firstInserted = nToBeDeleted
-			nToBeDeleted.nextInserted = nToBeDeleted.prevInserted = nToBeDeleted
-		} else {
-			if (nToBeDeleted == firstInserted)
-				firstInserted = nToBeDeleted.nextInserted
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted.prevInserted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted.nextInserted
-		}
-	}
-
-	((NodeAVL_Full) NIL).nextInserted = ((NodeAVL_Full) NIL).prevInserted = (NodeAVL_Full) NIL
-	if (root == NIL) {
-		firstInserted = (NodeAVL_Full) NIL
-		return v
-	}
-	return v
-}
-
-
-
-*/

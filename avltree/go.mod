@@ -1,3 +1,3 @@
-module data_structures/avltree
+module avltree
 
 go 1.22.1
