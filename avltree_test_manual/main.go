@@ -1,11 +1,11 @@
-package main
+package avltree_test_manual
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
-	"data_structures/avltree"
+	avltree "github.com/lonevetad/go-avltree"
 )
 
 type TestData struct {
@@ -20,7 +20,7 @@ func extract(t *TestData) int {
 	return t.id
 }
 
-func compare(i1 int, i2 int) int {
+func compare(i1 int, i2 int) int64 {
 	if i1 > i2 {
 		return 1
 	}
@@ -55,9 +55,15 @@ func printForEach(id int, td *TestData) {
 
 func main() {
 	td := new(TestData)
-	td.id = -7
+	td.id = -666
 	td.text = "HELLO NULL STRING"
 	fmt.Printf("null data: %v\n", td)
+	avlTreeConstructorParams := avltree.AVLTreeConstructorParams[int, *TestData]{}
+	avlTreeConstructorParams.KeyCollisionBehavior = avltree.Replace
+	avlTreeConstructorParams.KeyZeroValue = td.id
+	avlTreeConstructorParams.ValueZeroValue = td
+	avlTreeConstructorParams.KeyExtractor = extract
+	avlTreeConstructorParams.Comparator = compare
 
 	forEaches := []avltree.ForEachMode{
 		avltree.InOrder,
@@ -69,9 +75,11 @@ func main() {
 		{88, 7, 100}, //
 		{5, 4, 3, 2, 100, 1, 80, 1111, 44, 22, 99, 84, 83},
 		{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10, 11, 12, 13, 14, 15, 16},
+		{2, 2, 3, 3, 40, 40, 1, 1, 33, 33, 55, 55, 37, 37},
 	}
 	datasets_v := [][]string{
 		{"Adam", "Eevee", "GOD HIMSELF"},
+		nil,
 		nil,
 		nil,
 	}
@@ -80,7 +88,7 @@ func main() {
 		texts := datasets_v[i]
 		fmt.Printf("\n\n\n -------------------------------------------------------------------\n")
 		fmt.Printf("beginning the cycle # %d\n", i)
-		t, err := avltree.NewAVLTree(-1, td, extract, compare)
+		t, err := avltree.NewAVLTree(avlTreeConstructorParams)
 		if err != nil {
 			fmt.Print("ERROR!")
 			fmt.Print(err)
@@ -105,6 +113,27 @@ func main() {
 				fmt.Println()
 			}
 		}
+
+		fmt.Println("\n now removing key: 3")
+		oldVal, err := t.Remove(3)
+		if err != nil {
+			fmt.Printf("ERROR:  %s\n", err)
+		} else {
+			fmt.Printf("deleted value %v\n", oldVal)
+			printAVLTree(t)
+			fmt.Println()
+			fmt.Println("-------\ntesting all for-eaches:")
+			for ife, fe := range forEaches {
+				fmt.Printf("- - for-eacher #%d : %d\n\t =", ife, fe)
+				err = t.ForEach(fe, printForEach)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Println()
+			}
+			fmt.Println()
+		}
+		fmt.Println()
 	}
 
 	fmt.Println("finish")

@@ -1008,3 +1008,87 @@ func (p *KeyVal[K, V]) PairKey() K {
 func (p *KeyVal[K, V]) PairValue() V {
 	return p.value
 }
+
+type PeekAVLTree[K any, V any] struct {
+	tree *AVLTree[K, V]
+}
+
+func (n *AVLTNode[K, V]) KeyValue() *KeyVal[K, V] {
+	p := new(KeyVal[K, V])
+	*p = n.keyVal
+	return p
+}
+func (t *AVLTree[K, V]) PeekInternalStructure_Test() *PeekAVLTree[K, V] {
+	return &PeekAVLTree[K, V]{
+		tree: t,
+	}
+}
+func (t *AVLTree[K, V]) HasRoot() bool {
+	return t.root != t._NIL && t.root != nil
+}
+func (t *PeekAVLTree[K, V]) Root_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *t.tree.root // shallow copy
+	return n
+}
+func (t *PeekAVLTree[K, V]) Nil_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *t.tree._NIL // shallow copy
+	return n
+}
+func (t *PeekAVLTree[K, V]) MinValue_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *t.tree.minValue // shallow copy
+	return n
+}
+func (t *PeekAVLTree[K, V]) FirstInserted_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *t.tree.firstInserted // shallow copy
+	return n
+}
+func (node *AVLTNode[K, V]) Father_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *node.father // shallow copy
+	return n
+}
+func (node *AVLTNode[K, V]) Left_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *node.left // shallow copy
+	return n
+}
+func (node *AVLTNode[K, V]) Right_Test() *AVLTNode[K, V] {
+	n := new(AVLTNode[K, V])
+	*n = *node.right // shallow copy
+	return n
+}
+func (node *AVLTNode[K, V]) Height() int64 {
+	return node.height
+}
+func (node *AVLTNode[K, V]) SizeLeft() int64 {
+	return node.sizeLeft
+}
+func (node *AVLTNode[K, V]) SizeRight() int64 {
+	return node.sizeRight
+}
+
+func (t *PeekAVLTree[K, V]) HasFather(n *AVLTNode[K, V]) bool {
+	return n.father != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasLeft(n *AVLTNode[K, V]) bool {
+	return n.left != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasRight(n *AVLTNode[K, V]) bool {
+	return n.right != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasPreviousInOrder(n *AVLTNode[K, V]) bool {
+	return n.prevInOrder != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasNextInOrder(n *AVLTNode[K, V]) bool {
+	return n.nextInOrder != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasPreviousInserted(n *AVLTNode[K, V]) bool {
+	return n.prevInserted != t.tree._NIL
+}
+func (t *PeekAVLTree[K, V]) HasNextInserted(n *AVLTNode[K, V]) bool {
+	return n.nextInserted != t.tree._NIL
+}
