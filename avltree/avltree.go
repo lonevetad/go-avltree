@@ -854,6 +854,73 @@ func (t *AVLTree[K, V]) inlineStringKeyOnly(printer func(string), n *AVLTNode[K,
 	printer(")")
 }
 
+func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V])) error {
+	if t.IsEmpty() || action == nil {
+		return nil
+	}
+	canContinue := true
+	iterMax := t.size + 1 //anti-bug
+	switch mode {
+	case InOrder:
+		{
+			current := t.minValue
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.nextInOrder
+				canContinue = current != start
+			}
+		}
+	case ReverseInOrder:
+		{
+			current := t.minValue.prevInOrder
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.prevInOrder
+				canContinue = current != start
+			}
+		}
+	case Stack:
+		{
+			current := t.firstInserted.prevInserted
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.prevInserted
+				canContinue = current != start
+			}
+		}
+	case Queue:
+		{
+			current := t.firstInserted
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.nextInserted
+				canContinue = current != start
+			}
+		}
+	}
+	return nil
+}
+
 //
 
 // PUBLIC functions
@@ -913,67 +980,7 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) error {
 	if t.IsEmpty() || action == nil {
 		return nil
 	}
-	canContinue := true
-	iterMax := t.size + 1 //anti-bug
-	switch mode {
-	case InOrder:
-		{
-			current := t.minValue
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.nextInOrder
-				canContinue = current != start
-			}
-		}
-	case ReverseInOrder:
-		{
-			current := t.minValue.prevInOrder
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.prevInOrder
-				canContinue = current != start
-			}
-		}
-	case Stack:
-		{
-			current := t.firstInserted.prevInserted
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.prevInserted
-				canContinue = current != start
-			}
-		}
-	case Queue:
-		{
-			current := t.firstInserted
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.nextInserted
-				canContinue = current != start
-			}
-		}
-	}
-	return nil
+	return t.forEachNode(mode, func(n *AVLTNode[K, V]) { action(n.keyVal.key, n.keyVal.value) })
 }
 
 func (t *AVLTree[K, V]) StringInto(fullLogNode bool, printer func(string)) {
