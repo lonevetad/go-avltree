@@ -42,11 +42,11 @@ func (td *TestData) String() string {
 	return sb.String()
 }
 
-func NewMetadata(td *TestData) AVLTreeConstructorParams[int, *TestData] {
+func NewMetadata(keyZeroValue int, valueZeroValue *TestData) AVLTreeConstructorParams[int, *TestData] {
 	avlTreeConstructorParams := AVLTreeConstructorParams[int, *TestData]{}
 	avlTreeConstructorParams.KeyCollisionBehavior = Replace
-	avlTreeConstructorParams.KeyZeroValue = td.Id
-	avlTreeConstructorParams.ValueZeroValue = td
+	avlTreeConstructorParams.KeyZeroValue = keyZeroValue
+	avlTreeConstructorParams.ValueZeroValue = valueZeroValue
 	avlTreeConstructorParams.KeyExtractor = Extract
 	avlTreeConstructorParams.Comparator = IntCompare
 	return avlTreeConstructorParams
@@ -59,11 +59,14 @@ func NewTestData() *TestData {
 	return td
 }
 
-func TestNewTree(t *testing.T) {
-	td := NewTestData()
-	avlTreeConstructorParams := NewMetadata(td)
+func NewTree() (*AVLTree[int, *TestData], error) {
+	//td := NewTestData()
+	avlTreeConstructorParams := NewMetadata(-1000, nil)
+	return NewAVLTree(avlTreeConstructorParams)
+}
 
-	tree, err := NewAVLTree(avlTreeConstructorParams)
+func TestNewTree(t *testing.T) {
+	tree, err := NewTree()
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,7 +80,7 @@ func TestNewTree(t *testing.T) {
 		t.Errorf("the tree's root should NOT be nil\n")
 	}
 
-	testInt(t, true, tree.Size(), 0, "")
+	testEqualityPrimitive(t, true, tree.Size(), 0, "size should be 0")
 
 	if tree._NIL == nil {
 		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
@@ -88,6 +91,9 @@ func TestNewTree(t *testing.T) {
 	testIsLeaf(t, tree, tree._NIL)
 	testNIL(t, tree, true, tree.root, "root is not _NIL")
 	testNIL(t, tree, true, tree.root.father, "father is not _NIL")
+	testEqualityPrimitive(t, true, tree._NIL.height, DEPTH_INITIAL, fmt.Sprintf("NIL's height should be: %d", DEPTH_INITIAL))
+	testEqualityPrimitive(t, true, tree._NIL.sizeLeft, 0, "NIL's sizeLeft should be 0")
+	testEqualityPrimitive(t, true, tree._NIL.sizeRight, 0, "NIL's sizeRight should be 0")
 	testNIL(t, tree, true, tree.minValue, "minValue is not _NIL")
 	testNIL(t, tree, true, tree.firstInserted, "firstInserted is not _NIL")
 	testNIL(t, tree, true, tree.root.nextInOrder, "nextInOrder is not _NIL")
@@ -100,8 +106,76 @@ func TestNewTree(t *testing.T) {
 		if pektTree.
 	*/
 }
+func Test_AddOne(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Error(err)
+	}
 
-func testInt(t *testing.T, shouldBeEqual bool, actual int64, expected int64, additionalErrorText string) {
+	data := NewTestData()
+	data.Id = 0
+	data.Text = "First"
+	oldData, err := tree.Put(data.Id, data)
+	if err != nil {
+		t.Error(err)
+	}
+	testEqualityObj(t, true, oldData, tree.avlTreeConstructorParams.ValueZeroValue, EqualTestData, //
+		fmt.Sprintf("putting a value on empty tree should return the \"value's zero-value\", but we have: %v", oldData))
+
+	if tree.root == nil {
+		t.Errorf("the tree's root should NOT be nil\n")
+	}
+	testIsLeaf(t, tree, tree._NIL)
+	testNIL(t, tree, false, tree.root, "root is _NIL; should not be NIL")
+
+	//
+
+	testEqualityPrimitive(t, true, tree.Size(), 1, "size should be 1")
+
+	if tree._NIL == nil {
+		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
+	}
+
+	// internal nodes disposition
+
+	testNIL(t, tree, true, tree.root.father, "father is not _NIL")
+	testEqualityPrimitive(t, true, tree.root.height, 0, "new node's height should be: 0")
+	testEqualityPrimitive(t, true, tree.root.sizeLeft, 0, "new node's sizeLeft should be 0")
+	testEqualityPrimitive(t, true, tree.root.sizeRight, 0, "new node's sizeRight should be 0")
+
+	testEqualityObj(t, true, tree.minValue, tree.root, EqualData, "min value node should be equal to root, since it's the only node here")
+	testEqualityObj(t, true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root, since it's the only node here")
+
+	testEqualityObj(t, true, tree.root.nextInOrder, tree.root, EqualData, "nextInOrder should loop to itself, i.e. root, since it's the only node here")
+	testEqualityObj(t, true, tree.root.prevInOrder, tree.root, EqualData, "prevInOrder should loop to itself, i.e. root, since it's the only node here")
+	testEqualityObj(t, true, tree.root.nextInserted, tree.root, EqualData, "nextInserted should loop to itself, i.e. root, since it's the only node here")
+	testEqualityObj(t, true, tree.root.prevInserted, tree.root, EqualData, "prevInserted should loop to itself, i.e. root, since it's the only node here")
+}
+
+//
+
+func EqualData[V any](d1 *V, d2 *V) bool {
+	return d1 == d2
+}
+func EqualTestData(d1 *TestData, d2 *TestData) bool {
+	return EqualData[TestData](d1, d2)
+}
+func EqualTestDataDeep(d1 *TestData, d2 *TestData) bool {
+	return d1 == d2 || ((d1 != nil) && (d2 != nil) && //
+		(d1.Id == d2.Id) && (d1.Text == d2.Text))
+}
+
+func testEqualityObj[V any](t *testing.T, shouldBeEqual bool, actual V, expected V, equalityPredicate func(V, V) bool, additionalErrorText string) {
+	shouldOrShouldNot := ""
+	if !shouldBeEqual {
+		shouldOrShouldNot = " NOT"
+	}
+	if shouldBeEqual != equalityPredicate(actual, expected) {
+		t.Errorf("actual value %v should%s be equal to expected value %v; %s\n", actual, shouldOrShouldNot, expected, additionalErrorText)
+	}
+}
+
+func testEqualityPrimitive[V int | int64 | int32](t *testing.T, shouldBeEqual bool, actual V, expected V, additionalErrorText string) {
 	shouldOrShouldNot := ""
 	if !shouldBeEqual {
 		shouldOrShouldNot = " NOT"
