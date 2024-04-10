@@ -842,6 +842,18 @@ func (n *AVLTNode[K, V]) toStringTabbed(fullLogNode bool, printer func(string)) 
 	printer(sb.String())
 }
 
+func (t *AVLTree[K, V]) inlineStringKeyOnly(printer func(string), n *AVLTNode[K, V]) {
+	printer("(")
+	if n != t._NIL && n != nil {
+		t.inlineStringKeyOnly(printer, n.left)
+		printer(" -> ")
+		printer(fmt.Sprintf("<h:%d; %v>", n.height, n.keyVal.key))
+		printer(" <- ")
+		t.inlineStringKeyOnly(printer, n.right)
+	}
+	printer(")")
+}
+
 //
 
 // PUBLIC functions
@@ -985,6 +997,9 @@ func (t *AVLTree[K, V]) StringLogginFull(fullLogNode bool) string {
 }
 func (t *AVLTree[K, V]) String() string {
 	return t.StringLogginFull(true)
+}
+func (t *AVLTree[K, V]) InlineStringKeyOnly(printer func(string)) {
+	t.inlineStringKeyOnly(printer, t.root)
 }
 
 func (n *AVLTNode[K, V]) String() string {

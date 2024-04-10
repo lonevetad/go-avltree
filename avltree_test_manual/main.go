@@ -1,4 +1,4 @@
-package avltree_test_manual
+package main
 
 import (
 	"fmt"
@@ -112,6 +112,10 @@ func main() {
 				t.ForEach(fe, printForEach)
 				fmt.Println()
 			}
+
+			var b strings.Builder
+			t.InlineStringKeyOnly(func(ss string) { b.WriteString(ss) })
+			fmt.Println(b.String())
 		}
 
 		fmt.Println("\n now removing key: 3")
