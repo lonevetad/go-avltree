@@ -1110,6 +1110,8 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 	// look for nodes held by "in order / inserted-chronological" pointers BUT without fathers, children
 	// (or a father who has them as child, which is granted by the tree equality)
 
+	// TODO
+
 	forEaches := []avltree.ForEachMode{
 		avltree.InOrder,
 		avltree.ReverseInOrder,
