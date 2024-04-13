@@ -1023,3 +1023,20 @@ func (p *KeyVal[K, V]) PairKey() K {
 func (p *KeyVal[K, V]) PairValue() V {
 	return p.value
 }
+
+func (b ForEachMode) String() string {
+	var name string
+	switch b {
+	case InOrder:
+		name = "InOrder"
+	case ReverseInOrder:
+		name = "ReverseInOrder"
+	case Queue:
+		name = "Queue"
+	case Stack:
+		name = "Stack"
+	default:
+		name = fmt.Sprintf("unrecognized ForEachMode: %b", b)
+	}
+	return name
+}

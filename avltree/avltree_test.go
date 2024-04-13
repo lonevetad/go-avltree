@@ -1,6 +1,7 @@
 package avltree
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -58,6 +59,12 @@ func NewTestData() *TestData {
 	td.Text = "HELLO NULL STRING"
 	return td
 }
+func NewTestDataFilled(k int, v string) *TestData {
+	td := new(TestData)
+	td.Id = k
+	td.Text = v
+	return td
+}
 
 func NewTree() (*AVLTree[int, *TestData], error) {
 	//td := NewTestData()
@@ -72,82 +79,82 @@ func NewTree() (*AVLTree[int, *TestData], error) {
 func TestNewTree(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if tree == nil {
-		t.Error("the new tree should not be nil\n")
+		t.Fatal("the new tree should not be nil\n")
 		return
 	}
 
 	if tree.root == nil {
-		t.Errorf("the tree's root should NOT be nil\n")
+		t.Fatalf("the tree's root should NOT be nil\n")
 	}
 
 	err = testEqualityPrimitive(true, tree.Size(), 0, "size should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if tree._NIL == nil {
-		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
+		t.Fatalf("the tree's \"_NIL\" should NOT be nil\n")
 	}
 	if tree.root != tree._NIL {
-		t.Errorf("the tree should NOT have a root AND should be \"_NIL\"\n")
+		t.Fatalf("the tree should NOT have a root AND should be \"_NIL\"\n")
 	}
 	err = testIsLeaf(tree, tree._NIL)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root, "root is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree._NIL.height, DEPTH_INITIAL, fmt.Sprintf("NIL's height should be: %d", DEPTH_INITIAL))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree._NIL.sizeLeft, 0, "NIL's sizeLeft should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree._NIL.sizeRight, 0, "NIL's sizeRight should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.minValue, "minValue is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.firstInserted, "firstInserted is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.nextInOrder, "nextInOrder is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.prevInOrder, "prevInOrder is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.nextInserted, "nextInserted is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.prevInserted, "prevInserted is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
 func Test_AddOne(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	data := NewTestData()
@@ -155,79 +162,79 @@ func Test_AddOne(t *testing.T) {
 	data.Text = "First"
 	oldData, err := tree.Put(data.Id, data)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, oldData, tree.avlTreeConstructorParams.ValueZeroValue, EqualTestData, //
 		fmt.Sprintf("putting a value on empty tree should return the \"value's zero-value\", but we have: %v", oldData))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if tree.root == nil {
-		t.Errorf("the tree's root should NOT be nil\n")
+		t.Fatalf("the tree's root should NOT be nil\n")
 	}
 	err = testIsLeaf(tree, tree._NIL)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, false, tree.root, "root is _NIL; should not be NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	//
 
 	err = testEqualityPrimitive(true, tree.Size(), 1, "size should be 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if tree._NIL == nil {
-		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
+		t.Fatalf("the tree's \"_NIL\" should NOT be nil\n")
 	}
 
 	// internal nodes disposition
 
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.height, 0, "new node's height should be: 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeLeft, 0, "new node's sizeLeft should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeRight, 0, "new node's sizeRight should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.minValue, tree.root, EqualData, "min value node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.nextInOrder, tree.root, EqualData, "nextInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInOrder, tree.root, EqualData, "prevInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.nextInserted, tree.root, EqualData, "nextInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInserted, tree.root, EqualData, "prevInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
@@ -235,7 +242,7 @@ func Test_AddOne_2WithSameKey_Replace(t *testing.T) {
 
 	tree, err := NewTree()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	data := NewTestData()
@@ -243,7 +250,7 @@ func Test_AddOne_2WithSameKey_Replace(t *testing.T) {
 	data.Text = "First"
 	_, err = tree.Put(data.Id, data)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	d2 := NewTestData()
@@ -251,71 +258,71 @@ func Test_AddOne_2WithSameKey_Replace(t *testing.T) {
 	d2.Text = "Second"
 	oldData, err := tree.Put(d2.Id, d2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, oldData, data, EqualTestData, "should be the first data-value inserted")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.keyVal.value, d2, EqualTestData, "should be the second data-value inserted, since it should be replaced")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	//
 
 	err = testEqualityPrimitive(true, tree.Size(), 1, "size should be 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if tree._NIL == nil {
-		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
+		t.Fatalf("the tree's \"_NIL\" should NOT be nil\n")
 	}
 
 	// internal nodes disposition
 
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.height, 0, "new node's height should be: 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeLeft, 0, "new node's sizeLeft should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeRight, 0, "new node's sizeRight should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.minValue, tree.root, EqualData, "min value node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.nextInOrder, tree.root, EqualData, "nextInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInOrder, tree.root, EqualData, "prevInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.nextInserted, tree.root, EqualData, "nextInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInserted, tree.root, EqualData, "prevInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 func Test_AddOne_2WithSameKey_Ignore(t *testing.T) {
@@ -323,7 +330,7 @@ func Test_AddOne_2WithSameKey_Ignore(t *testing.T) {
 	tree, err := NewTree()
 	tree.avlTreeConstructorParams.KeyCollisionBehavior = IgnoreInsertion
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	data := NewTestData()
@@ -331,7 +338,7 @@ func Test_AddOne_2WithSameKey_Ignore(t *testing.T) {
 	data.Text = "First"
 	_, err = tree.Put(data.Id, data)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	d2 := NewTestData()
@@ -339,71 +346,71 @@ func Test_AddOne_2WithSameKey_Ignore(t *testing.T) {
 	d2.Text = "Second"
 	oldData, err := tree.Put(d2.Id, d2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, oldData, data, EqualTestData, "should be the first data-value inserted")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.keyVal.value, data, EqualTestData, "should be the second data-value inserted, as if the Put would be rejected")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	//
 
 	err = testEqualityPrimitive(true, tree.Size(), 1, "size should be 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if tree._NIL == nil {
-		t.Errorf("the tree's \"_NIL\" should NOT be nil\n")
+		t.Fatalf("the tree's \"_NIL\" should NOT be nil\n")
 	}
 
 	// internal nodes disposition
 
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.height, 0, "new node's height should be: 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeLeft, 0, "new node's sizeLeft should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeRight, 0, "new node's sizeRight should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.minValue, tree.root, EqualData, "min value node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.nextInOrder, tree.root, EqualData, "nextInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInOrder, tree.root, EqualData, "prevInOrder should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.nextInserted, tree.root, EqualData, "nextInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInserted, tree.root, EqualData, "prevInserted should loop to itself, i.e. root, since it's the only node here")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
@@ -413,7 +420,7 @@ func Test_AddOne_2_InOrder(t *testing.T) {
 
 	tree, err := NewTree()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	keys := []int{2, 1}
@@ -427,28 +434,28 @@ func Test_AddOne_2_InOrder(t *testing.T) {
 
 		_, err = tree.Put(data.Id, data)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 
 	err = testNIL(tree, false, tree.root, "root should not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.keyVal.value, datas[0], EqualTestData, //
 		fmt.Sprintf("root (%v) should be: %v", tree.root.keyVal.value, datas[0]))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testNIL(tree, false, tree.root.left, "root's left should not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.left.keyVal.value, datas[1], EqualTestData, //
 		fmt.Sprintf("root's left (%v) should be: %v", tree.root.left.keyVal.value, datas[1]))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	//
@@ -456,77 +463,77 @@ func Test_AddOne_2_InOrder(t *testing.T) {
 	expectSize := int64(len(datas))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// internal nodes disposition
 
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.right, "root's right should be _NIL, but it's not")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.height, 1, "new node's height should be: 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeLeft, 1, "new node's sizeLeft should be 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeRight, 0, "new node's sizeRight should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.minValue, tree.root.left, EqualData, "min value node should be equal to root's left")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.nextInOrder, tree.root.left, EqualData, "root's nextInOrder should be root's left")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInOrder, tree.root.left, EqualData, "root's prevInOrder should be root's left")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.nextInserted, tree.root.left, EqualData, "root's nextInserted should be root's left")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInserted, tree.root.left, EqualData, "root's prevInserted should be root's left")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.left.father, tree.root, EqualData, "the second node's father should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.left.nextInOrder, tree.root, EqualData, "the second node's nextInOrder should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.left.prevInOrder, tree.root, EqualData, "the second node's prevInOrder should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.left.nextInserted, tree.root, EqualData, "the second node's nextInserted should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.left.prevInserted, tree.root, EqualData, "the second node's prevInserted should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
@@ -534,7 +541,7 @@ func Test_AddOne_2_ReverseOrder(t *testing.T) {
 
 	tree, err := NewTree()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	keys := []int{2, 3}
@@ -548,28 +555,28 @@ func Test_AddOne_2_ReverseOrder(t *testing.T) {
 
 		_, err = tree.Put(data.Id, data)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 
 	err = testNIL(tree, false, tree.root, "root should not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.keyVal.value, datas[0], EqualTestData, //
 		fmt.Sprintf("root (%v) should be: %v", tree.root.keyVal.value, datas[0]))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testNIL(tree, false, tree.root.right, "root's right should not be _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.right.keyVal.value, datas[1], EqualTestData, //
 		fmt.Sprintf("root's right (%v) should be: %v", tree.root.right.keyVal.value, datas[1]))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	//
@@ -577,77 +584,77 @@ func Test_AddOne_2_ReverseOrder(t *testing.T) {
 	expectSize := int64(len(datas))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// internal nodes disposition
 
 	err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testNIL(tree, true, tree.root.left, "root's left should be _NIL, but it's not")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.height, 1, "new node's height should be: 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeLeft, 0, "new node's sizeleft should be 0")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, tree.root.sizeRight, 1, "new node's sizeRight should be 1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.minValue, tree.root, EqualData, "min value node should be equal to root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.firstInserted, tree.root, EqualData, "first inserted node should be equal to root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.nextInOrder, tree.root.right, EqualData, "root's nextInOrder should be root's right")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInOrder, tree.root.right, EqualData, "root's prevInOrder should be root's right")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.nextInserted, tree.root.right, EqualData, "root's nextInserted should be root's right")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.prevInserted, tree.root.right, EqualData, "root's prevInserted should be root's right")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	err = testEqualityObj(true, tree.root.right.father, tree.root, EqualData, "the second node's father should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.right.nextInOrder, tree.root, EqualData, "the second node's nextInOrder should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.right.prevInOrder, tree.root, EqualData, "the second node's prevInOrder should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.right.nextInserted, tree.root, EqualData, "the second node's nextInserted should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	err = testEqualityObj(true, tree.root.right.prevInserted, tree.root, EqualData, "the second node's prevInserted should be root")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
@@ -698,12 +705,60 @@ func Test_Add_3(t *testing.T) {
 		{"right left", []int{1, 3, 2}, []int{2, 0, 1}, nil},
 	}
 
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	dummyNodes := []*AVLTNode[int, *TestData]{ // keep the Breadth's first visit order
+		dummyTree.newNode(2, NewTestDataFilled(2, "root")),
+		dummyTree.newNode(1, NewTestDataFilled(1, "left")),
+		dummyTree.newNode(3, NewTestDataFilled(3, "right")),
+	}
+	dummyTree.root = dummyNodes[0]
+	dummyTree.minValue = dummyNodes[1]
+	dummyTree.root.left = dummyNodes[1]
+	dummyTree.root.left.father = dummyTree.root
+	dummyTree.root.right = dummyNodes[2]
+	dummyTree.root.right.father = dummyTree.root
+	dummyTree.size = 3
+	dummyTree.root.height = 1
+	dummyTree.root.sizeLeft = 1
+	dummyTree.root.sizeRight = 1
+	// adjust in-order
+	/*for i, n := range dummyNodes {
+		n.nextInOrder = dummyNodes[(i+1)%len(dummyNodes)]
+		i_prev := i - 1
+		if i_prev < 0 {
+			i_prev += len(dummyNodes)
+		}
+		n.prevInOrder = dummyNodes[i_prev]
+	}*/
+	dummyTree.root.nextInOrder = dummyTree.root.right
+	dummyTree.root.prevInOrder = dummyTree.root.left
+	dummyTree.root.left.nextInOrder = dummyTree.root
+	dummyTree.root.left.prevInOrder = dummyTree.root.right
+	dummyTree.root.right.nextInOrder = dummyTree.root.left
+	dummyTree.root.right.prevInOrder = dummyTree.root
+
 	for _, data := range setups {
+
+		// adjust inserted-chronological order
+
+		fmt.Printf("with data.keys: %v\n", data.keys)
+		for i := 0; i < len(dummyNodes); i++ {
+			n := dummyNodes[data.onBreadthVisit_IndexKeyData[i]]
+			nextNode := dummyNodes[data.onBreadthVisit_IndexKeyData[(i+1)%len(dummyNodes)]]
+			fmt.Printf("connecting dummy node:\n\t%v\nwith\n\t%v\n", n, nextNode)
+			n.nextInserted = nextNode
+			nextNode.prevInserted = n
+			fmt.Printf("after connection...\ndummy node:\n\t%v\nwith\n\t%v\n\n", n, nextNode)
+		}
 
 		tree, err := NewTree()
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		data.datas = make([]*TestData, len(data.keys))
@@ -717,9 +772,11 @@ func Test_Add_3(t *testing.T) {
 			_, err = tree.Put(dataTest.Id, dataTest)
 			if err != nil {
 				err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-				t.Error(err)
+				t.Fatal(err)
 			}
 		}
+
+		fmt.Printf("\n\nwith data.keys: %v,\noriginal tree:\n\t%v\n\n\t dummy tree:%s\n\n", data.keys, tree, dummyTree)
 
 		// early definitions
 		var nodeNextInserted, nodePrevInserted *AVLTNode[int, *TestData]
@@ -729,14 +786,25 @@ func Test_Add_3(t *testing.T) {
 		err = testNIL(tree, false, tree.root, "root should not _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		expectSize := int64(len(data.datas))
 		err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
+		}
+
+		areEquals, err := CheckTrees(tree, dummyTree)
+		if err != nil {
+			fmt.Printf("an error occoured: %v\n", err)
+			t.Fatal(err)
+			return
+		}
+		if !areEquals {
+			t.Fatal(fmt.Errorf("trees are not equal"))
+			return
 		}
 
 		indexRoot := 0
@@ -748,35 +816,35 @@ func Test_Add_3(t *testing.T) {
 			fmt.Sprintf("root key (%d) should be: %d", tree.root.keyVal.key, dataRootExpected.Id))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, tree.root.keyVal.value, dataRootExpected, EqualTestData, //
 			fmt.Sprintf("root value (%v) should be: %v", tree.root.keyVal.value, dataRootExpected))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testNIL(tree, true, tree.root.father, "father is not _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testEqualityPrimitive(true, tree.root.height, 1, "new node's height should be: 1")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityPrimitive(true, tree.root.sizeLeft, 1, "new node's sizeleft should be 1")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityPrimitive(true, tree.root.sizeRight, 1, "new node's sizeRight should be 1")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		index_onBreadthVisit_IndexKeyData_root := 0
@@ -787,7 +855,7 @@ func Test_Add_3(t *testing.T) {
 		dataRoot := data.datas[data.onBreadthVisit_IndexKeyData[index_onBreadthVisit_IndexKeyData_root]]
 		rootRecalcolated := tree.getNode(dataRoot.Id)
 		if rootRecalcolated != tree.root {
-			t.Error("the tests are wrong! root has been wrongly indexed")
+			t.Fatal("the tests are wrong! root has been wrongly indexed")
 		}
 		firstNodeInserted := tree.getNode(data.keys[0])
 
@@ -814,36 +882,36 @@ func Test_Add_3(t *testing.T) {
 		err = testEqualityObj(true, tree.minValue, tree.root.left, EqualData, "min value node should be equal to root 's left")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, tree.firstInserted, firstNodeInserted, EqualData, fmt.Sprintf("first inserted node (%v) should be equal to : %v", tree.firstInserted.keyVal.value, firstNodeInserted.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testEqualityObj(true, tree.root.nextInOrder, tree.root.right, EqualData, fmt.Sprintf("root's nextInOrder (whose value is: %v) should be root's right, with value: %v", tree.root.nextInOrder.keyVal.value, tree.root.right.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, tree.root.prevInOrder, tree.root.left, EqualData, fmt.Sprintf("root's prevInOrder (whose value is: %v) should be root's left, with value: %v", tree.root.prevInOrder.keyVal.value, tree.root.left.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if err != nil {
 			err = testEqualityObj(true, tree.root.nextInserted, nodeNextInserted, EqualData, fmt.Sprintf("root's nextInserted (whose value is: %v) should be the node with value: %v", tree.root.nextInserted.keyVal.value, nodeNextInserted.keyVal.value))
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, tree.root.prevInserted, nodePrevInserted, EqualData,
-			fmt.Sprintf("root's prevInserted (whose value is: %v) should be the node with value: %v (fetched with key: %d; index indexRootPrevInserted: %d, tempIndexPrev: %d, indexKey_WhenRootWasAdded:%d)",
+			fmt.Sprintf("root's prevInserted (whose value is: %v)\n\tshould be the node with value: %v\n\t(fetched with key: %d; index indexRootPrevInserted: %d, tempIndexPrev: %d, indexKey_WhenRootWasAdded:%d)",
 				tree.root.prevInserted.keyVal.value, nodePrevInserted.keyVal.value,
 				dataRootPrevInserted.Id, indexRootPrevInserted, tempIndexPrev, indexKey_WhenRootWasAdded))
 		if err != nil {
-			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error:\n\t %s", data.name, data.keys, err)
+			t.Fatal(err)
 		}
 
 		// root's left checks
@@ -863,46 +931,46 @@ func Test_Add_3(t *testing.T) {
 		err = testNIL(tree, false, left, "root's left should not be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, left.father, tree.root, EqualData, fmt.Sprintf( //
 			"left's father (left value: %v) should be root (value: %v), but we have as father: %v", //
 			left.keyVal.value, tree.root.keyVal.value, left.father.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testNIL(tree, true, left.left, "left's left should be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testNIL(tree, true, left.right, "left's right should be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testEqualityObj(true, left.nextInOrder, tree.root, EqualData, fmt.Sprintf("root's left's nextInOrder should be root, with value: %v", tree.root.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, left.prevInOrder, tree.root.right, EqualData, fmt.Sprintf("root's left's prevInOrder should be root's right, with value: %v", tree.root.right.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if err != nil {
 			err = testEqualityObj(true, left.nextInserted, nodeNextInserted, EqualData, fmt.Sprintf("left's nextInserted should be the node with value: %v", nodeNextInserted.keyVal.value))
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, left.prevInserted, nodePrevInserted, EqualData, fmt.Sprintf("left's prevInserted should be the node with value: %v", nodePrevInserted.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		// root's right checks
@@ -922,46 +990,46 @@ func Test_Add_3(t *testing.T) {
 		err = testNIL(tree, false, right, "root's right should not be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, right.father, tree.root, EqualData, fmt.Sprintf( //
 			"right's father (right value: %v) should be root (value: %v), but we have as father: %v", //
 			right.keyVal.value, tree.root.keyVal.value, right.father.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testNIL(tree, true, right.left, "right's left should be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testNIL(tree, true, right.right, "right's right should be _NIL")
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		err = testEqualityObj(true, right.nextInOrder, tree.root.left, EqualData, fmt.Sprintf("root's right's nextInOrder should be root's left, with value: %v", tree.root.left.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, right.prevInOrder, tree.root, EqualData, fmt.Sprintf("root's right's prevInOrder should be root, with value: %v", tree.root.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if err != nil {
 			err = testEqualityObj(true, right.nextInserted, nodeNextInserted, EqualData, fmt.Sprintf("right's nextInserted should be the node with value: %v", nodeNextInserted.keyVal.value))
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 		err = testEqualityObj(true, right.prevInserted, nodePrevInserted, EqualData, fmt.Sprintf("right's prevInserted should be the node with value: %v", nodePrevInserted.keyVal.value))
 		if err != nil {
 			err = fmt.Errorf("on test {{\"%s\" - %v}} -- error: %s", data.name, data.keys, err)
-			t.Error(err)
+			t.Fatal(err)
 		}
 	}
 
@@ -1063,6 +1131,7 @@ func gnp[K any, V any](t *AVLTree[K, V], path []int) (*AVLTNode[K, V], error) {
 
 func DumpTreesForErrorsPrinter[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], additionalPreText string, printer func(s string)) {
 	printer(additionalPreText)
+	printer("\nt1:\n")
 	t1.StringInto(true, printer)
 	printer("\nt2:\n")
 	t2.StringInto(true, printer)
@@ -1093,16 +1162,21 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 		}
 		return false, fmt.Errorf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
 	}
-
+	fmt.Println("on CheckTrees, checking height")
 	if t1.root.height != t2.root.height {
 		return false, fmt.Errorf(DumpTreesForErrors(t1, t2, //
-			fmt.Sprintf("they have different heights: t1's %d, t2's  %d\nt1:\n", t1.root.height, t2.root.height)))
+			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height)))
 	}
 
 	maxHeight := t1.root.height
-	pathRun := make([]bool, maxHeight)
+	pathRun := make([]bool, maxHeight+1)
+	for i := 0; i < (int(maxHeight) + 1); i++ {
+		pathRun[i] = false
+	}
 
+	fmt.Println("on CheckTrees, checking checkTreesEquality")
 	equal, err := checkTreesEquality(t1, t2, t1.root, t2.root, pathRun, 0)
+	fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
 	if (!equal) || (err != nil) {
 		return false, err
 	}
@@ -1110,40 +1184,97 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 	// look for nodes held by "in order / inserted-chronological" pointers BUT without fathers, children
 	// (or a father who has them as child, which is granted by the tree equality)
 
-	// TODO
-
-	forEaches := []avltree.ForEachMode{
-		avltree.InOrder,
-		avltree.ReverseInOrder,
-		avltree.Queue,
-		avltree.Stack,
+	forEaches := []ForEachMode{
+		InOrder,
+		ReverseInOrder,
+		Queue,
+		Stack,
 	}
 
-	for ife, fe := range forEaches {
-		errs1 := make([]error)
-		errs2 := make([]error)
+	for _, fe := range forEaches {
+		errs1 := []error{}
+		errs2 := []error{}
 		nodes_count1 := 0
 		nodes_count2 := 0
 
-		accumulator =
-			func(isOne bool) {
-				io := isOne
-				return func(node *AVLTNode[K, V]) {
-					// TODO : check for
-					nodesToCheck_name := []string{"father", "left", "right"}
-					nodes := []*AVLTNode[K, V]{node.father, node.left, node.right}
+		errPrinter := func(nodeName string, currentNode *AVLTNode[K, V], isOne bool) error {
+			var sb strings.Builder
+			sb.WriteString("while iterating on tree ")
+			if isOne {
+				sb.WriteString("one")
+			} else {
+				sb.WriteString("two")
+			}
+			sb.WriteString(", current node has a NIL ")
+			sb.WriteString(nodeName)
+			sb.WriteString(",\n\t--")
+			currentNode.toStringTabbed(true, func(s string) { sb.WriteString(s) })
+			return fmt.Errorf(sb.String())
+		}
 
-					// for i_n, X := range nodes{ ...
-					// -) if X-node is NIL ->
-					// - -) if(io) { nodes_count1++ } else { nodes_count2++ }
-					// ... }
-					// TODO proseguire anche con gli altri due
+		// TODO: ri-pensare come scovare i "dangling nodes" che dovrebbero essere rimossi MA sono reperibili grazie a qualche  link di iterazione
+		// inoltre, evitare il falso positivo della root (ha father NIL ma ha almeno un child {left; right})
+		// e quelli delle foglie (hanno il father, ma mancano i children)
+
+		accumulator := func(currentTree *AVLTree[K, V], isOne bool) func(node *AVLTNode[K, V]) {
+			io := isOne
+			ct := currentTree
+			return func(node *AVLTNode[K, V]) {
+				nodesToCheck_name := []string{"father", "left", "right"}
+				nodes := []*AVLTNode[K, V]{node.father, node.left, node.right}
+				var hasErrors bool
+
+				for i_n, X := range nodes {
+					hasErrors = false // hypotesis
+
+					if X == ct._NIL {
+						hasErrors = true
+						errCurrent := errPrinter(nodesToCheck_name[i_n], node, io)
+						if io {
+							errs1 = append(errs1, errCurrent)
+						} else {
+							errs2 = append(errs2, errCurrent)
+						}
+					}
+				}
+				if hasErrors {
+					if io {
+						nodes_count1++
+					} else {
+						nodes_count2++
+					}
 				}
 			}
-		t1.ForEach(fe, accumulator(1 == 1))
-		t2.ForEach(fe, accumulator(2 == 1))
+		}
+		t1.forEachNode(fe, accumulator(t1, 1 == 1))
+		t2.forEachNode(fe, accumulator(t2, 2 == 1))
 
-		// TODO - mettere checks sui "count" e sparare (stampare) gli errori in un unico "fmt.Errorf" da, poi, restituire
+		var sb strings.Builder
+		hasErrors := false
+		if len(errs1) > 0 {
+			hasErrors = true
+			sb.WriteString(fmt.Sprintf("on tree one, on ForEachType %s, %d errors:", fe.String(), nodes_count1))
+			for _, e := range errs1 {
+				sb.WriteString("\n\t- : ")
+				sb.WriteString(e.Error())
+			}
+			sb.WriteString("\n")
+		}
+		errs1 = nil
+		if len(errs2) > 0 {
+			hasErrors = true
+			sb.WriteString(fmt.Sprintf("on tree two, on ForEachType %s, %d errors:", fe.String(), nodes_count2))
+			for _, e := range errs2 {
+				sb.WriteString("\n\t- : ")
+				sb.WriteString(e.Error())
+			}
+			sb.WriteString("\n")
+		}
+		errs2 = nil
+		if hasErrors {
+			return false, fmt.Errorf(sb.String())
+		}
+
 	}
 	return true, nil
 }
@@ -1158,10 +1289,16 @@ func composeErrorOnCheckTree[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V],
 	}
 	sb.WriteString(fmt.Sprintf("\twhile exploring %s branch at depth %d (complete path: %v), an error occour:\n\t", branchText, depthCurrent, pathRun))
 	sb.WriteString(additionalText)
+	sb.WriteString("\n\tdumping nodes")
+	printer := func(s string) { sb.WriteString(s) }
+	n1.toStringTabbed(true, printer)
+	n2.toStringTabbed(true, printer)
+	printer = nil // clear the memory
 	sb.WriteString("\n\tdumping trees")
 
-	// TODO: aggiungere print di un errore con anche il path ... e per finire, invoca: DumpTreesForErrors()
-	return fmt.Errorf(sb.String())
+	return errors.New(
+		DumpTreesForErrors(
+			t1, t2, sb.String()))
 }
 
 /*
@@ -1176,40 +1313,36 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return true, nil
 	}
 
-	if n1 == nil /*|| n1 == t1._NIL*/ {
+	fmt.Println("on checkTreesEquality, checking n1 == null")
+	if n1 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
-		/*if n1 == nil {
-		nullity */ /*= "null"*/
-		/*		} else {
-				nullity = "t._NIL"
-			}*/
+
 		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of first tree is %s (the second one didn't)", nullity))
 	}
-	if n2 == nil /* || n2 == t2._NIL */ {
+	fmt.Println("on checkTreesEquality, checking n2 == null")
+	if n2 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
-		/*if n2 == nil {
-		nullity*/ /*= "null"*/
-		/*} else {
-			nullity = "t._NIL"
-		}*/
+
 		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of second tree is %s (the first one didn't)", nullity))
 	}
-	/*
-		if (n1.father == t1._NIL) != (n2.father == t2._NIL) {
-			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
-				"the nodes have different father existance: one of them is nil, the other one does exists")
-		}
-	*/
 
+	fmt.Println("on checkTreesEquality, checking integers")
 	//  checking : height, size left, size right
 	integers := []string{"height", "size left", "size right"}
 	int_1 := []int64{n1.height, n1.sizeLeft, n1.sizeRight}
 	int_2 := []int64{n2.height, n2.sizeLeft, n2.sizeRight}
-	// TODO: fare i check e sparare gli errori
+	i := 0
+	l := len(integers)
+	for ; i < l; i++ {
+		if int_1[i] != int_2[i] {
+			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+				fmt.Sprintf("checking integers; %s comparison failed: node1 ones= %d, node2 ones= %d", integers[i], int_1[i], int_2[i]))
+		}
+	}
 
 	var comp1, comp2 int
 
@@ -1224,9 +1357,10 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	pointersNode2 := []**AVLTNode[K, V]{&n2, &(n2.father), &(n2.left), &(n2.right)}
 	pointerName := []string{"", "'s father", "'s left", "'s right"}
 
-	// TODO: iterate
-	i := 0
-	l := len(pointerName)
+	fmt.Println("on checkTreesEquality, checking pointers")
+
+	i = 0
+	l = len(pointerName)
 	for ; i < l; i++ {
 		pointer1 := pointersNode1[i]
 		pointer2 := pointersNode2[i]
@@ -1238,6 +1372,8 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		// checking : NIL-ity
 
 		if (node1 == t1._NIL) != (node2 == t2._NIL) { // the "XOR" ("^") does not exists, "!=" is equivalent
+			fmt.Printf("NIL-ity of node1 and node2 are different: %t and %t\n\t node1: %v\n\t node2: %v\n\t NIL 1: %v\n\t NIL 2: %v\n", //
+				(node1 == t1._NIL), (node2 == t2._NIL), node1, node2, t1._NIL, t2._NIL)
 			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s NIL-ity, they are different: the nil-comparison results in < %t > for 1 and in < %t > for 2\n\t the checked node 1: %v\n\t the checked node 2: %v\n", //
 					nameNode, (node1 == t1._NIL), (node2 == t2._NIL), node1, node2))
@@ -1246,6 +1382,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 
 	}
 
+	fmt.Println("on checkTreesEquality, checking in-order or inserted nodes")
 	//  checking : keys, various
 	// NOTE: those checks are shifted outside the for loop above because:
 	// -) the father should already be checked (ERROR: IT WON'T IF N1 & N2 ARE THE ROOTS! HOW TO DEAL WITH THIS SITUATION [== "those roots"] ?)
@@ -1265,10 +1402,12 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		comp1 = int(t1.avlTreeConstructorParams.Comparator(node1.keyVal.key, node2.keyVal.key))
 		comp2 = int(t2.avlTreeConstructorParams.Comparator(node1.keyVal.key, node2.keyVal.key))
 
+		fmt.Printf("on checkTreesEquality, checking pointers of %s, comp1: %d\n\tnode 1: %v\n\t node 2: %v\n", keyOwnername, comp1, n1, n2)
 		if comp1 != 0 {
 			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 1 comparator, the comparison should be 0, but is: %d", keyOwnername, comp1))
 		}
+		fmt.Printf("on checkTreesEquality, checking pointers of %s, comp2: %d\n\tnode 1: %v\n\t node 2: %v\n", keyOwnername, comp2, n1, n2)
 		if comp2 != 0 {
 			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 2 comparator, the comparison should be 0, but is: %d", keyOwnername, comp2))
@@ -1281,19 +1420,21 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	// TODO con il 2
 
 	// recursion on children
+	fmt.Println("on checkTreesEquality, recursion on left")
 
 	pathRun[depthCurrent] = true
-	equal, err := checkTreesEquality(t1, t2, n1.left, n1.left, pathRun, depthCurrent+1)
+	equal, err := checkTreesEquality(t1, t2, n1.left, n2.left, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
-		// TODO : dump errors using path to show the "list" of nodes and choiches where this error occours
 		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, "")
 	}
+	fmt.Println("on checkTreesEquality, recursion on right")
 	pathRun[depthCurrent] = false
-	equal, err = checkTreesEquality(t1, t2, n1.right, n1.right, pathRun, depthCurrent+1)
+	equal, err = checkTreesEquality(t1, t2, n1.right, n2.right, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
-		// TODO : dump errors using path to show the "list" of nodes and choiches where this error occours
 		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, "")
 	}
+
+	fmt.Println("on checkTreesEquality, ended recursion")
 
 	return true, nil
 }
