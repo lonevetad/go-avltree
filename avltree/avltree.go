@@ -246,11 +246,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 
 	// we don't use n: it's height is 0 and it's connected only to NIL -> is balanced
 	t.insertFixup(x)
-	t._NIL.father = t._NIL
-	t._NIL.left = t._NIL
-	t._NIL.right = t._NIL
-	t._NIL.nextInOrder = t._NIL
-	t._NIL.prevInOrder = t._NIL
+	t.cleanNil()
 
 	// track chronological insertion
 	t.pushToLastInserted(n)
@@ -847,7 +843,7 @@ func (t *AVLTree[K, V]) inlineStringKeyOnly(printer func(string), n *AVLTNode[K,
 	if n != t._NIL && n != nil {
 		t.inlineStringKeyOnly(printer, n.left)
 		printer(" -> ")
-		printer(fmt.Sprintf("<h:%d; %v>", n.height, n.keyVal.key))
+		printer(fmt.Sprintf("<h:%d; k:%v>", n.height, n.keyVal.key))
 		printer(" <- ")
 		t.inlineStringKeyOnly(printer, n.right)
 	}
