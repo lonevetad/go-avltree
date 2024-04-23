@@ -945,11 +945,27 @@ func (t *AVLTree[K, V]) Size() int64 {
 	return t.size
 }
 
-func (t *AVLTree[K, V]) NILL() interface{} { return t._NIL }
+func (t *AVLTree[K, V]) Get(key K) (V, error) {
+	n := t.getNode(key)
+	if n == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, errors.New("entry not found")
+	}
+	return n.keyVal.value, nil
+}
 
 func (t *AVLTree[K, V]) Put(key K, value V) (V, error) {
 	n := t.newNode(key, value)
 	return t.put(n)
+}
+
+func (t *AVLTree[K, V]) Replace(key K, newValue V) (V, error) {
+	n := t.getNode(key)
+	if n == t._NIL {
+		return t.avlTreeConstructorParams.ValueZeroValue, errors.New("entry not found, can't replace")
+	}
+	v := n.keyVal.value
+	n.keyVal.value = newValue
+	return v, nil
 }
 
 func (t *AVLTree[K, V]) Remove(k K) (V, error) {

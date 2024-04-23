@@ -248,12 +248,12 @@ func TestRotateLeftLeft_3nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -346,12 +346,12 @@ func TestRotateRightRight_3nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -450,12 +450,12 @@ func TestRotateLeftRight_3nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -547,12 +547,12 @@ func TestRotateRightLeft_3nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -669,12 +669,12 @@ func TestRotateLeftLeft_5nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -792,12 +792,12 @@ func TestRotateRightRight_5nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -928,12 +928,12 @@ func TestRotateLeftRight_5nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -1063,12 +1063,12 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 	expectSize := int64(len(values))
 	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
 	if err != nil {
-		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.Size(), expectSize, err)
 		t.Fatal(err)
 	}
 
@@ -1971,6 +1971,30 @@ func Test_Add_3(t *testing.T) {
 
 }
 
+// minor tests
+
+func Test_ForEachMode_String(t *testing.T) {
+	if !(InOrder.String() == "InOrder") {
+		t.Fatalf("current ForEachMode (%b) 's string (%s) is not equivalent to \"InOrder\"\n", InOrder, InOrder.String())
+	}
+	if !(ReverseInOrder.String() == "ReverseInOrder") {
+		t.Fatalf("current ForEachMode (%b) 's string (%s) is not equivalent to \"ReverseInOrder\"\n", ReverseInOrder, ReverseInOrder.String())
+	}
+	if !(Queue.String() == "Queue") {
+		t.Fatalf("current ForEachMode (%b) 's string (%s) is not equivalent to \"Queue\"\n", Queue, Queue.String())
+	}
+	if !(Stack.String() == "Stack") {
+		t.Fatalf("current ForEachMode (%b) 's string (%s) is not equivalent to \"Stack\"\n", Stack, Stack.String())
+	}
+
+	nonExisting_ForEachMode_byte := byte(127)
+	nonExisting_ForEachMode := ForEachMode(nonExisting_ForEachMode_byte)
+	expectedTextConversion := fmt.Sprintf("unrecognized ForEachMode: %b", nonExisting_ForEachMode_byte)
+	if !(nonExisting_ForEachMode.String() == expectedTextConversion) {
+		t.Fatalf("current ForEachMode (%b) 's string (%s) is not equivalent to \"%s\"\n", nonExisting_ForEachMode_byte, nonExisting_ForEachMode.String(), expectedTextConversion)
+	}
+}
+
 //
 //
 //
@@ -2085,8 +2109,8 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 		return true, nil // fmt.Errorf("indentitarly equal trees")
 	}
 
-	if t1.size != t2.size {
-		errText := fmt.Sprintf("different sizes: %d and %d\n", t1.size, t2.size)
+	if t1.Size() != t2.Size() {
+		errText := fmt.Sprintf("different sizes: %d and %d\n", t1.Size(), t2.Size())
 		fmt.Println(errText)
 		return false, ne(errText)
 	}
@@ -2096,11 +2120,11 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 	}
 	if t1.IsEmpty() != t2.IsEmpty() {
 		if t1.IsEmpty() {
-			errText := fmt.Sprintf("t1 is empty but t2 is not: t2 has %d nodes", t2.size)
+			errText := fmt.Sprintf("t1 is empty but t2 is not: t2 has %d nodes", t2.Size())
 			fmt.Println(errText)
 			return false, ne(errText)
 		}
-		errText := fmt.Sprintf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
+		errText := fmt.Sprintf("t1 is not empty but t2 is: t1 it has %d nodes", t2.Size())
 		fmt.Println(errText)
 		return false, ne(errText)
 	}
