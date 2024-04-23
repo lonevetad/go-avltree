@@ -476,13 +476,8 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 	hasLeft := n.left != t._NIL
 	hasRight := n.right != t._NIL
 
-	fmt.Printf("\n\n ON REMOVING -> current node: %v\n\thas left: %t, has right: %t\n", n.keyVal.key, hasLeft, hasRight)
 	if hasLeft && hasRight {
 		successor := n.nextInOrder // 33
-
-		fmt.Println("has both left and right")
-		fmt.Printf("successor: < k: %v> , isLeaf: %t\n", successor.keyVal.key, t.isLeaf(successor))
-		fmt.Printf("successor father: < k: %v>\n", successor.father.keyVal.key)
 
 		// shift values
 		n.keyVal.key = successor.keyVal.key

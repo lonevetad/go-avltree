@@ -801,10 +801,10 @@ func TestRotateRightRight_5nodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		fmt.Printf("an error occoured: %v\n", err)
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s\n", errText.String())
+		t.Fatal(errText)
 		return
 	}
 	if !areEquals {
@@ -937,9 +937,9 @@ func TestRotateLeftRight_5nodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		t.Fatal(errText)
 		return
 	}
 	if !areEquals {
@@ -962,7 +962,6 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 	}
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
-	fmt.Printf("putting %d values by hand\n", len(values))
 	for i := 0; i < len(values); i++ {
 		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
 		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
@@ -1073,10 +1072,10 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		fmt.Printf("an error occoured: %v\n", err)
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s\n", errText.Error())
+		t.Fatal(errText)
 		return
 	}
 	if !areEquals {
@@ -2105,7 +2104,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 		fmt.Println(errText)
 		return false, ne(errText)
 	}
-	fmt.Println("on CheckTrees, checking height")
+	//fmt.Println("on CheckTrees, checking height")
 	if t1.root.height != t2.root.height {
 		errText := DumpTreesForErrors(t1, t2, //
 			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height))
@@ -2119,9 +2118,9 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 		pathRun[i] = false
 	}
 
-	fmt.Println("on CheckTrees, checking checkTreesEquality")
+	//fmt.Println("on CheckTrees, checking checkTreesEquality")
 	equal, err := checkTreesEquality(t1, t2, t1.root, t2.root, pathRun, 0)
-	fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
+	//fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
 	if (!equal) || (err != nil) {
 		fmt.Println(err.Error())
 		return false, err
@@ -2244,7 +2243,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return true, nil
 	}
 
-	fmt.Println("checking n1 nullity")
+	// fmt.Println("checking n1 nullity")
 	if n1 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
@@ -2253,7 +2252,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		fmt.Println(errText)
 		return false, ne(errText)
 	}
-	fmt.Println("checking n2 nullity")
+	// fmt.Println("checking n2 nullity")
 	if n2 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
@@ -2263,7 +2262,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return false, ne(errText)
 	}
 
-	fmt.Println("checking : height, size left, size right")
+	// fmt.Println("checking : height, size left, size right")
 	integers := []string{"height", "size left", "size right"}
 	int_1 := []int64{n1.height, n1.sizeLeft, n1.sizeRight}
 	int_2 := []int64{n2.height, n2.sizeLeft, n2.sizeRight}
@@ -2291,7 +2290,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	pointersNode1 := []**AVLTNode[K, V]{&n1, &(n1.father), &(n1.left), &(n1.right)}
 	pointersNode2 := []**AVLTNode[K, V]{&n2, &(n2.father), &(n2.left), &(n2.right)}
 	pointerName := []string{"", "'s father", "'s left", "'s right"}
-	fmt.Println("checking pointers nullity")
+	// fmt.Println("checking pointers nullity")
 	i = 0
 	l = len(pointerName)
 	for ; i < l; i++ {
@@ -2320,7 +2319,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 
 	}
 
-	fmt.Println("checking : keys, various")
+	// fmt.Println("checking : keys, various")
 	// NOTE: those checks are shifted outside the for loop above because:
 	// -) the father should already be checked (ERROR: IT WON'T IF N1 & N2 ARE THE ROOTS! HOW TO DEAL WITH THIS SITUATION [== "those roots"] ?)
 	// -) the children (left & right) will be checked by the recursion -> no need to check tem __twice__ ["thrice", actually, due to the "father" check]
@@ -2363,7 +2362,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		}
 	}
 
-	fmt.Println("recursion on children: left")
+	// fmt.Println("recursion on children: left")
 	pathRun[depthCurrent] = true
 	equal, err := checkTreesEquality(t1, t2, n1.left, n2.left, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
@@ -2372,7 +2371,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return false, ne(errText)
 	}
 	pathRun[depthCurrent] = false
-	fmt.Println("recursion on children: right")
+	// fmt.Println("recursion on children: right")
 	equal, err = checkTreesEquality(t1, t2, n1.right, n2.right, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
 		fmt.Printf("original error: %s\n", err.Error())
@@ -2381,7 +2380,6 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return false, ne(errText)
 	}
 
-	fmt.Println("NO ERROR on checkTreesEquality")
 	return true, nil
 }
 
