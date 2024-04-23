@@ -1,12 +1,27 @@
 package avltree
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 )
+
+type errorTest struct {
+	errText string
+}
+
+func (et *errorTest) Error() string {
+	return et.errText
+}
+func (et *errorTest) String() string {
+	return et.errText
+}
+func ne(s string) *errorTest {
+	e := new(errorTest)
+	e.errText = s
+	return e
+}
 
 type TestData struct {
 	Id   int
@@ -155,7 +170,7 @@ func TestNewTree(t *testing.T) {
 	}
 }
 
-func TestRotateLeftLeft(t *testing.T) {
+func TestRotateLeftLeft_3nodes(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
 		t.Fatal(err)
@@ -242,10 +257,10 @@ func TestRotateLeftLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		fmt.Printf("an error occoured: %v\n", err)
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s\n", errText.Error())
+		t.Fatal(errText.Error())
 		return
 	}
 	if !areEquals {
@@ -254,7 +269,7 @@ func TestRotateLeftLeft(t *testing.T) {
 	}
 }
 
-func TestRotateRightRight(t *testing.T) {
+func TestRotateRightRight_3nodes(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
 		t.Fatal(err)
@@ -340,10 +355,10 @@ func TestRotateRightRight(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		fmt.Printf("an error occoured: %v\n", err)
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s\n", errText.Error())
+		t.Fatal(errText)
 		return
 	}
 	if !areEquals {
@@ -352,7 +367,7 @@ func TestRotateRightRight(t *testing.T) {
 	}
 }
 
-func TestRotateLeftRight(t *testing.T) {
+func TestRotateLeftRight_3nodes(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +391,6 @@ func TestRotateLeftRight(t *testing.T) {
 		}
 	}
 
-	// TODO : sistemare i link per formare il caso left-right
 	//      3
 	//    /
 	// 1
@@ -445,9 +459,9 @@ func TestRotateLeftRight(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	areEquals, err := CheckTrees(tree, dummyTree)
-	if err != nil {
-		t.Fatal(err)
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		t.Fatal(errText.Error())
 		return
 	}
 	if !areEquals {
@@ -456,7 +470,7 @@ func TestRotateLeftRight(t *testing.T) {
 	}
 }
 
-func TestRotateRightLeft(t *testing.T) {
+func TestRotateRightLeft_3nodes(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
 		t.Fatal(err)
@@ -526,6 +540,523 @@ func TestRotateRightLeft(t *testing.T) {
 
 	// rotating
 	tree.insertFixup(nodesTree[1])
+	tree.cleanNil()
+
+	// checking
+
+	expectSize := int64(len(values))
+	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		t.Fatal(err)
+	}
+	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateRightLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		t.Fatal(err)
+	}
+
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s\n", errText)
+		t.Fatal(errText)
+		return
+	}
+	if !areEquals {
+		t.Fatal(fmt.Errorf("trees are not equal"))
+		return
+	}
+}
+
+func TestRotateLeftLeft_5nodes(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []int{
+		3, 2, 1, 4, 0,
+	}
+	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	for i := 0; i < len(values); i++ {
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+	}
+	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
+		for i := 0; i < len(values); i++ {
+			linkNodes(nt[i], nt[(i+1)%len(values)], false)
+		}
+	}
+
+	// seting up trees - original
+	tree.root = nodesTree[0]
+	nodesTree[0].left = nodesTree[1]
+	nodesTree[1].father = nodesTree[0]
+	nodesTree[1].left = nodesTree[2]
+	nodesTree[2].father = nodesTree[1]
+	tree.root.right = nodesTree[3]
+	nodesTree[3].father = nodesTree[0]
+	nodesTree[2].left = nodesTree[4]
+	nodesTree[4].father = nodesTree[2]
+	tree.firstInserted = nodesTree[0]
+	nodesTree[0].height = 3
+	nodesTree[0].sizeLeft = 3
+	nodesTree[0].sizeRight = 1
+	nodesTree[1].height = 2
+	nodesTree[1].sizeLeft = 2
+	nodesTree[1].sizeRight = 0
+	nodesTree[2].height = 1
+	nodesTree[2].sizeLeft = 1
+	nodesTree[2].sizeRight = 0
+	nodesTree[3].height = 0
+	nodesTree[3].sizeLeft = 0
+	nodesTree[3].sizeRight = 0
+	nodesTree[4].height = 0
+	nodesTree[4].sizeLeft = 0
+	nodesTree[4].sizeRight = 0
+	tree.minValue = nodesTree[4]
+	tree.size = 5
+	linkNodes(nodesTree[4], nodesTree[2], true)
+	linkNodes(nodesTree[2], nodesTree[1], true)
+	linkNodes(nodesTree[1], nodesTree[0], true)
+	linkNodes(nodesTree[0], nodesTree[3], true)
+	linkNodes(nodesTree[3], nodesTree[4], true)
+
+	// seting up trees - dummy
+	dummyTree.root = nodesDummyTree[0]
+	nodesDummyTree[0].left = nodesDummyTree[2]
+	nodesDummyTree[0].right = nodesDummyTree[3]
+	nodesDummyTree[1].father = nodesDummyTree[2]
+	nodesDummyTree[2].father = nodesDummyTree[0]
+	nodesDummyTree[2].left = nodesDummyTree[4]
+	nodesDummyTree[2].right = nodesDummyTree[1]
+	nodesDummyTree[3].father = nodesDummyTree[0]
+	nodesDummyTree[4].father = nodesDummyTree[2]
+	dummyTree.firstInserted = nodesDummyTree[0]
+	nodesDummyTree[0].height = 2
+	nodesDummyTree[0].sizeLeft = 3
+	nodesDummyTree[0].sizeRight = 1
+	nodesDummyTree[1].height = 0
+	nodesDummyTree[1].sizeLeft = 0
+	nodesDummyTree[1].sizeRight = 0
+	nodesDummyTree[2].height = 1
+	nodesDummyTree[2].sizeLeft = 1
+	nodesDummyTree[2].sizeRight = 1
+	nodesDummyTree[3].height = 0
+	nodesDummyTree[3].sizeLeft = 0
+	nodesDummyTree[3].sizeRight = 0
+	nodesDummyTree[4].height = 0
+	nodesDummyTree[4].sizeLeft = 0
+	nodesDummyTree[4].sizeRight = 0
+	dummyTree.minValue = nodesDummyTree[4]
+	dummyTree.size = 5
+	linkNodes(nodesDummyTree[4], nodesDummyTree[2], true)
+	linkNodes(nodesDummyTree[2], nodesDummyTree[1], true)
+	linkNodes(nodesDummyTree[1], nodesDummyTree[0], true)
+	linkNodes(nodesDummyTree[0], nodesDummyTree[3], true)
+	linkNodes(nodesDummyTree[3], nodesDummyTree[4], true)
+
+	// rotating
+	tree.insertFixup(nodesTree[2])
+	tree.cleanNil()
+
+	// checking
+
+	expectSize := int64(len(values))
+	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		t.Fatal(err)
+	}
+	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateLeftLeft, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		t.Fatal(err)
+	}
+
+	areEquals, errText := CheckTrees(tree, dummyTree)
+	if errText != nil {
+		fmt.Printf("an error occoured: %s.\n", errText.Error())
+		//t.Fatal(err.Error())
+		t.Errorf("%s", errText.Error())
+		return
+	}
+	if !areEquals {
+		t.Fatal(fmt.Errorf("trees are not equal"))
+		return
+	}
+}
+
+func TestRotateRightRight_5nodes(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []int{
+		1, 2, 0, 3, 4,
+	}
+	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	for i := 0; i < len(values); i++ {
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+	}
+	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
+		for i := 0; i < len(values); i++ {
+			linkNodes(nt[i], nt[(i+1)%len(values)], false)
+		}
+	}
+
+	// seting up trees - original
+	tree.root = nodesTree[0]
+	nodesTree[0].right = nodesTree[1]
+	nodesTree[0].left = nodesTree[2]
+	nodesTree[1].father = nodesTree[0]
+	nodesTree[1].right = nodesTree[3]
+	nodesTree[2].father = nodesTree[0]
+	nodesTree[3].right = nodesTree[4]
+	nodesTree[3].father = nodesTree[1]
+	nodesTree[4].father = nodesTree[3]
+	tree.firstInserted = nodesTree[0]
+	nodesTree[0].height = 3
+	nodesTree[0].sizeLeft = 1
+	nodesTree[0].sizeRight = 3
+	nodesTree[1].height = 2
+	nodesTree[1].sizeLeft = 0
+	nodesTree[1].sizeRight = 2
+	nodesTree[2].height = 0
+	nodesTree[2].sizeLeft = 0
+	nodesTree[2].sizeRight = 0
+	nodesTree[3].height = 1
+	nodesTree[3].sizeLeft = 0
+	nodesTree[3].sizeRight = 1
+	nodesTree[4].height = 0
+	nodesTree[4].sizeLeft = 0
+	nodesTree[4].sizeRight = 0
+	tree.minValue = nodesTree[2]
+	tree.size = 5
+	linkNodes(nodesTree[2], nodesTree[0], true)
+	linkNodes(nodesTree[0], nodesTree[1], true)
+	linkNodes(nodesTree[1], nodesTree[3], true)
+	linkNodes(nodesTree[3], nodesTree[4], true)
+	linkNodes(nodesTree[4], nodesTree[2], true)
+
+	// seting up trees - dummy
+	dummyTree.root = nodesDummyTree[0]
+	nodesDummyTree[0].left = nodesDummyTree[2]
+	nodesDummyTree[0].right = nodesDummyTree[3]
+	nodesDummyTree[1].father = nodesDummyTree[3]
+	nodesDummyTree[2].father = nodesDummyTree[0]
+	nodesDummyTree[3].father = nodesDummyTree[0]
+	nodesDummyTree[3].left = nodesDummyTree[1]
+	nodesDummyTree[3].right = nodesDummyTree[4]
+	nodesDummyTree[4].father = nodesDummyTree[3]
+	dummyTree.firstInserted = nodesDummyTree[0]
+	nodesDummyTree[0].height = 2
+	nodesDummyTree[0].sizeLeft = 1
+	nodesDummyTree[0].sizeRight = 3
+	nodesDummyTree[1].height = 0
+	nodesDummyTree[1].sizeLeft = 0
+	nodesDummyTree[1].sizeRight = 0
+	nodesDummyTree[2].height = 0
+	nodesDummyTree[2].sizeLeft = 0
+	nodesDummyTree[2].sizeRight = 0
+	nodesDummyTree[3].height = 1
+	nodesDummyTree[3].sizeLeft = 1
+	nodesDummyTree[3].sizeRight = 1
+	nodesDummyTree[4].height = 0
+	nodesDummyTree[4].sizeLeft = 0
+	nodesDummyTree[4].sizeRight = 0
+	dummyTree.minValue = nodesDummyTree[2]
+	dummyTree.size = 5
+	linkNodes(nodesDummyTree[2], nodesDummyTree[0], true)
+	linkNodes(nodesDummyTree[0], nodesDummyTree[1], true)
+	linkNodes(nodesDummyTree[1], nodesDummyTree[3], true)
+	linkNodes(nodesDummyTree[3], nodesDummyTree[4], true)
+	linkNodes(nodesDummyTree[4], nodesDummyTree[2], true)
+
+	// rotating
+	tree.insertFixup(nodesTree[3])
+	tree.cleanNil()
+
+	// checking
+
+	expectSize := int64(len(values))
+	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		t.Fatal(err)
+	}
+	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateRightRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		t.Fatal(err)
+	}
+
+	areEquals, err := CheckTrees(tree, dummyTree)
+	if err != nil {
+		fmt.Printf("an error occoured: %v\n", err)
+		t.Fatal(err)
+		return
+	}
+	if !areEquals {
+		t.Fatal(fmt.Errorf("trees are not equal"))
+		return
+	}
+}
+
+func TestRotateLeftRight_5nodes(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []int{
+		3, 4, 2, 0, 1,
+	}
+	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	for i := 0; i < len(values); i++ {
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+	}
+	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
+		for i := 0; i < len(values); i++ {
+			linkNodes(nt[i], nt[(i+1)%len(values)], false)
+		}
+	}
+
+	//              3
+	//          /       \
+	//       2             4
+	//    /
+	// 0
+	//  \
+	//   1
+	// ->
+	//         3
+	//      /     \
+	//   1           4
+	//  / \
+	// 0   2
+
+	// seting up trees - original
+	tree.root = nodesTree[0]
+	nodesTree[0].left = nodesTree[2]
+	nodesTree[0].right = nodesTree[1]
+	nodesTree[1].father = nodesTree[0]
+	nodesTree[2].father = nodesTree[0]
+	nodesTree[2].left = nodesTree[3]
+	nodesTree[3].father = nodesTree[2]
+	nodesTree[3].right = nodesTree[4]
+	nodesTree[4].father = nodesTree[3]
+	tree.firstInserted = nodesTree[0]
+	nodesTree[0].height = 3
+	nodesTree[0].sizeLeft = 3
+	nodesTree[0].sizeRight = 1
+	nodesTree[1].height = 0
+	nodesTree[1].sizeLeft = 0
+	nodesTree[1].sizeRight = 0
+	nodesTree[2].height = 2
+	nodesTree[2].sizeLeft = 2
+	nodesTree[2].sizeRight = 0
+	nodesTree[3].height = 1
+	nodesTree[3].sizeLeft = 0
+	nodesTree[3].sizeRight = 1
+	nodesTree[4].height = 0
+	nodesTree[4].sizeLeft = 0
+	nodesTree[4].sizeRight = 0
+	tree.minValue = nodesTree[3]
+	tree.size = 5
+	linkNodes(nodesTree[3], nodesTree[4], true)
+	linkNodes(nodesTree[4], nodesTree[2], true)
+	linkNodes(nodesTree[2], nodesTree[0], true)
+	linkNodes(nodesTree[0], nodesTree[1], true)
+	linkNodes(nodesTree[1], nodesTree[3], true)
+
+	// seting up trees - dummy
+	dummyTree.root = nodesDummyTree[0]
+	nodesDummyTree[0].left = nodesDummyTree[4]
+	nodesDummyTree[0].right = nodesDummyTree[1]
+	nodesDummyTree[1].father = nodesDummyTree[0]
+	nodesDummyTree[2].father = nodesDummyTree[4]
+	nodesDummyTree[3].father = nodesDummyTree[4]
+	nodesDummyTree[4].father = nodesDummyTree[0]
+	nodesDummyTree[4].left = nodesDummyTree[3]
+	nodesDummyTree[4].right = nodesDummyTree[2]
+	dummyTree.firstInserted = nodesDummyTree[0]
+	nodesDummyTree[0].height = 2
+	nodesDummyTree[0].sizeLeft = 3
+	nodesDummyTree[0].sizeRight = 1
+	nodesDummyTree[1].height = 0
+	nodesDummyTree[1].sizeLeft = 0
+	nodesDummyTree[1].sizeRight = 0
+	nodesDummyTree[2].height = 0
+	nodesDummyTree[2].sizeLeft = 0
+	nodesDummyTree[2].sizeRight = 0
+	nodesDummyTree[3].height = 0
+	nodesDummyTree[3].sizeLeft = 0
+	nodesDummyTree[3].sizeRight = 0
+	nodesDummyTree[4].height = 1
+	nodesDummyTree[4].sizeLeft = 1
+	nodesDummyTree[4].sizeRight = 1
+	dummyTree.minValue = nodesDummyTree[3]
+	dummyTree.size = 5
+	linkNodes(nodesDummyTree[3], nodesDummyTree[4], true)
+	linkNodes(nodesDummyTree[4], nodesDummyTree[2], true)
+	linkNodes(nodesDummyTree[2], nodesDummyTree[0], true)
+	linkNodes(nodesDummyTree[0], nodesDummyTree[1], true)
+	linkNodes(nodesDummyTree[1], nodesDummyTree[3], true)
+
+	// rotating
+	tree.insertFixup(nodesTree[3])
+	tree.cleanNil()
+
+	// checking
+
+	expectSize := int64(len(values))
+	err = testEqualityPrimitive(true, tree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", tree.size, expectSize, err)
+		t.Fatal(err)
+	}
+	err = testEqualityPrimitive(true, dummyTree.Size(), expectSize, fmt.Sprintf("size should be %d", expectSize))
+	if err != nil {
+		err = fmt.Errorf("on test TestRotateLeftRight, checking tree size (%d) and expected size (%d) falied\n\t-- error: %s", dummyTree.size, expectSize, err)
+		t.Fatal(err)
+	}
+
+	areEquals, err := CheckTrees(tree, dummyTree)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	if !areEquals {
+		t.Fatal(fmt.Errorf("trees are not equal"))
+		return
+	}
+}
+
+func TestRotateRightLeft_5nodes(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []int{
+		3, 0, 4, 2, 1,
+	}
+	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
+	fmt.Printf("putting %d values by hand\n", len(values))
+	for i := 0; i < len(values); i++ {
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+	}
+	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
+		for i := 0; i < len(values); i++ {
+			linkNodes(nt[i], nt[(i+1)%len(values)], false)
+		}
+	}
+
+	//        3
+	//    /       \
+	// 0             4
+	//   \
+	//     2
+	//    /
+	//   1
+	// ->
+	//         3
+	//      /     \
+	//   1           4
+	//  / \
+	// 0   2
+
+	// seting up trees - original
+	tree.root = nodesTree[0]
+	nodesTree[0].left = nodesTree[1]
+	nodesTree[0].right = nodesTree[2]
+	nodesTree[1].father = nodesTree[0]
+	nodesTree[1].right = nodesTree[3]
+	nodesTree[2].father = nodesTree[0]
+	nodesTree[3].father = nodesTree[1]
+	nodesTree[3].left = nodesTree[4]
+	nodesTree[4].father = nodesTree[3]
+	tree.firstInserted = nodesTree[0]
+	nodesTree[0].height = 3
+	nodesTree[0].sizeLeft = 3
+	nodesTree[0].sizeRight = 1
+	nodesTree[1].height = 2
+	nodesTree[1].sizeLeft = 0
+	nodesTree[1].sizeRight = 2
+	nodesTree[2].height = 0
+	nodesTree[2].sizeLeft = 0
+	nodesTree[2].sizeRight = 0
+	nodesTree[3].height = 1
+	nodesTree[3].sizeLeft = 1
+	nodesTree[3].sizeRight = 0
+	nodesTree[4].height = 0
+	nodesTree[4].sizeLeft = 0
+	nodesTree[4].sizeRight = 0
+	tree.minValue = nodesTree[1]
+	tree.size = 5
+	linkNodes(nodesTree[1], nodesTree[4], true)
+	linkNodes(nodesTree[4], nodesTree[3], true)
+	linkNodes(nodesTree[3], nodesTree[0], true)
+	linkNodes(nodesTree[0], nodesTree[2], true)
+	linkNodes(nodesTree[2], nodesTree[1], true)
+
+	// seting up trees - dummy
+	dummyTree.root = nodesDummyTree[0]
+	nodesDummyTree[0].left = nodesDummyTree[4]
+	nodesDummyTree[0].right = nodesDummyTree[2]
+	nodesDummyTree[1].father = nodesDummyTree[4]
+	nodesDummyTree[2].father = nodesDummyTree[0]
+	nodesDummyTree[3].father = nodesDummyTree[4]
+	nodesDummyTree[4].father = nodesDummyTree[0]
+	nodesDummyTree[4].left = nodesDummyTree[1]
+	nodesDummyTree[4].right = nodesDummyTree[3]
+	dummyTree.firstInserted = nodesDummyTree[0]
+	nodesDummyTree[0].height = 2
+	nodesDummyTree[0].sizeLeft = 3
+	nodesDummyTree[0].sizeRight = 1
+	nodesDummyTree[1].height = 0
+	nodesDummyTree[1].sizeLeft = 0
+	nodesDummyTree[1].sizeRight = 0
+	nodesDummyTree[2].height = 0
+	nodesDummyTree[2].sizeLeft = 0
+	nodesDummyTree[2].sizeRight = 0
+	nodesDummyTree[3].height = 0
+	nodesDummyTree[3].sizeLeft = 0
+	nodesDummyTree[3].sizeRight = 0
+	nodesDummyTree[4].height = 1
+	nodesDummyTree[4].sizeLeft = 1
+	nodesDummyTree[4].sizeRight = 1
+	dummyTree.minValue = nodesDummyTree[1]
+	dummyTree.size = 5
+	linkNodes(nodesDummyTree[1], nodesDummyTree[4], true)
+	linkNodes(nodesDummyTree[4], nodesDummyTree[3], true)
+	linkNodes(nodesDummyTree[3], nodesDummyTree[0], true)
+	linkNodes(nodesDummyTree[0], nodesDummyTree[2], true)
+	linkNodes(nodesDummyTree[2], nodesDummyTree[1], true)
+
+	// rotating
+	tree.insertFixup(nodesTree[3])
 	tree.cleanNil()
 
 	// checking
@@ -1197,10 +1728,10 @@ func Test_Add_3(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		areEquals, err := CheckTrees(tree, dummyTree)
-		if err != nil {
-			fmt.Printf("an error occoured: %v\n", err)
-			t.Fatal(err)
+		areEquals, errText := CheckTrees(tree, dummyTree)
+		if errText != nil {
+			fmt.Printf("an error occoured: %s\n", errText.String())
+			t.Fatal(errText)
 			return
 		}
 		if !areEquals {
@@ -1550,13 +2081,15 @@ func DumpTreesForErrors[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], addi
 	DumpTreesForErrorsBuilder(t1, t2, additionalPreText, sb)
 	return sb.String()
 }
-func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error) {
+func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *errorTest) {
 	if t1 == t2 {
-		return true, fmt.Errorf("indentitarly equal trees")
+		return true, nil // fmt.Errorf("indentitarly equal trees")
 	}
 
 	if t1.size != t2.size {
-		return false, fmt.Errorf("different sizes: %d and %d\n", t1.size, t2.size)
+		errText := fmt.Sprintf("different sizes: %d and %d\n", t1.size, t2.size)
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
 
 	if t1.IsEmpty() && t2.IsEmpty() {
@@ -1564,14 +2097,20 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 	}
 	if t1.IsEmpty() != t2.IsEmpty() {
 		if t1.IsEmpty() {
-			return false, fmt.Errorf("t1 is empty but t2 is not: t2 has %d nodes", t2.size)
+			errText := fmt.Sprintf("t1 is empty but t2 is not: t2 has %d nodes", t2.size)
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
-		return false, fmt.Errorf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
+		errText := fmt.Sprintf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
-	// fmt.Println("on CheckTrees, checking height")
+	fmt.Println("on CheckTrees, checking height")
 	if t1.root.height != t2.root.height {
-		return false, fmt.Errorf(DumpTreesForErrors(t1, t2, //
-			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height)))
+		errText := DumpTreesForErrors(t1, t2, //
+			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height))
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
 
 	maxHeight := t1.root.height
@@ -1580,10 +2119,11 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 		pathRun[i] = false
 	}
 
-	// fmt.Println("on CheckTrees, checking checkTreesEquality")
+	fmt.Println("on CheckTrees, checking checkTreesEquality")
 	equal, err := checkTreesEquality(t1, t2, t1.root, t2.root, pathRun, 0)
-	// fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
+	fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
 	if (!equal) || (err != nil) {
+		fmt.Println(err.Error())
 		return false, err
 	}
 
@@ -1603,18 +2143,11 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 		nodes_count1 := 0
 		nodes_count2 := 0
 
-		// TODO: ri-pensare come scovare i "dangling nodes" che dovrebbero essere rimossi MA sono reperibili grazie a qualche  link di iterazione
-		// inoltre, evitare il falso positivo della root (ha father NIL ma ha almeno un child {left; right})
-		// e quelli delle foglie (hanno il father, ma mancano i children)
-
 		accumulator := func(currentTree *AVLTree[K, V], isOne bool, forEachM ForEachMode) func(node *AVLTNode[K, V]) {
 			io := isOne
 			ct := currentTree
 			fem := forEachM
 			return func(node *AVLTNode[K, V]) {
-				// bnodesToCheck_name := []string{"father", "left", "right"}
-				// nodes := []*AVLTNode[K, V]{node.father, node.left, node.right}
-				// fmt.Printf("on for each < %s >, on tree one? %t, which has size %d,\n\t- node: %v\n", fem.String(), isOne, ct.size, node)
 				isDangling := (node.father == ct._NIL) && (node.left == ct._NIL) && (node.right == ct._NIL)
 
 				if isDangling {
@@ -1636,7 +2169,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 						node.toStringTabbed(true, func(s string) { sb.WriteString(s) })
 					}
 
-					errCurrent := errors.New(sb.String())
+					errCurrent := ne(sb.String())
 					if io {
 						errs1 = append(errs1, errCurrent)
 						nodes_count1++
@@ -1673,14 +2206,16 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, error
 		}
 		errs2 = nil
 		if hasErrors {
-			return false, fmt.Errorf(sb.String())
+			errText := sb.String()
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
 
 	}
 	return true, nil
 }
 
-func composeErrorOnCheckTree[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int, additionalText string) error {
+func composeErrorOnCheckTree[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int, additionalText string) string {
 	var sb strings.Builder
 	var branchText string
 	if pathRun[depthCurrent] {
@@ -1697,39 +2232,38 @@ func composeErrorOnCheckTree[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V],
 	printer = nil // clear the memory
 	sb.WriteString("\n\tdumping trees")
 
-	return errors.New(
-		DumpTreesForErrors(
-			t1, t2, sb.String()))
+	return DumpTreesForErrors(t1, t2, sb.String())
 }
 
 /*
 path true == left, false == right
 */
-func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int) (bool, error) {
-	//TODO: DEVO RIMUOVERE IL CODICE COMMENTATO PER CIò CHE NON è STRETTAMENTE "nil", PERCHè VIENE AFFRONTATO NEL CICLO SOTTO
-
-	//  checking : if the nodes are strictly "nil" (NOT "t._NIL" !)
+func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int) (bool, *errorTest) {
 
 	if n1 == nil && n2 == nil || (n1 == t1._NIL && n2 == t2._NIL) {
 		return true, nil
 	}
 
+	fmt.Println("checking n1 nullity")
 	if n1 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
-
-		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of first tree is %s (the second one didn't)", nullity))
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
+	fmt.Println("checking n2 nullity")
 	if n2 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
-
-		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of second tree is %s (the first one didn't)", nullity))
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
 
-	//  checking : height, size left, size right
+	fmt.Println("checking : height, size left, size right")
 	integers := []string{"height", "size left", "size right"}
 	int_1 := []int64{n1.height, n1.sizeLeft, n1.sizeRight}
 	int_2 := []int64{n2.height, n2.sizeLeft, n2.sizeRight}
@@ -1737,8 +2271,11 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	l := len(integers)
 	for ; i < l; i++ {
 		if int_1[i] != int_2[i] {
-			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("checking integers; %s comparison failed: node1 ones= %d, node2 ones= %d", integers[i], int_1[i], int_2[i]))
+			fmt.Printf("error on checking %s integers:\n", integers[i])
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
 	}
 
@@ -1754,7 +2291,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	pointersNode1 := []**AVLTNode[K, V]{&n1, &(n1.father), &(n1.left), &(n1.right)}
 	pointersNode2 := []**AVLTNode[K, V]{&n2, &(n2.father), &(n2.left), &(n2.right)}
 	pointerName := []string{"", "'s father", "'s left", "'s right"}
-
+	fmt.Println("checking pointers nullity")
 	i = 0
 	l = len(pointerName)
 	for ; i < l; i++ {
@@ -1768,15 +2305,22 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		// checking : NIL-ity
 
 		if (node1 == t1._NIL) != (node2 == t2._NIL) { // the "XOR" ("^") does not exists, "!=" is equivalent
-			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+			fmt.Printf("error on checking node%s pointer nullity\n", pointerName[i])
+			fmt.Printf("\tn1:%s\n", n1)
+			fmt.Printf("\tnode 1:%s\n", node1)
+			fmt.Printf("\tn2:%s\n", n2)
+			fmt.Printf("\tnode 2:%s\n", node2)
+			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s NIL-ity, they are different: the nil-comparison results in < %t > for 1 and in < %t > for 2\n\t the checked node 1: %v\n\t the checked node 2: %v\n", //
 					nameNode, (node1 == t1._NIL), (node2 == t2._NIL), node1, node2))
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
 		// if both nodes are NOT "NIL", then they will be checked in the for loop below
 
 	}
 
-	//  checking : keys, various
+	fmt.Println("checking : keys, various")
 	// NOTE: those checks are shifted outside the for loop above because:
 	// -) the father should already be checked (ERROR: IT WON'T IF N1 & N2 ARE THE ROOTS! HOW TO DEAL WITH THIS SITUATION [== "those roots"] ?)
 	// -) the children (left & right) will be checked by the recursion -> no need to check tem __twice__ ["thrice", actually, due to the "father" check]
@@ -1796,32 +2340,48 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		comp2 = int(t2.avlTreeConstructorParams.Comparator(node1.keyVal.key, node2.keyVal.key))
 
 		if comp1 != 0 {
-			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+			fmt.Printf("error on comp 1: value %d\nnode 1: %v\n\t node 2:%v\n\t", comp1, node1, node2)
+			fmt.Print("t1\n\t")
+			fmt.Println(t1.String())
+			fmt.Print("t2\n\t")
+			fmt.Println(t2.String())
+			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 1 comparator, the comparison should be 0, but is: %d", keyOwnername, comp1))
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
 		if comp2 != 0 {
-			return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
+			fmt.Printf("error on comp 2: value %d\nnode 1: %v\n\t node 2:%v\n\t", comp2, node1, node2)
+			fmt.Print("t1\n\t")
+			fmt.Println(t1.String())
+			fmt.Print("t2\n\t")
+			fmt.Println(t2.String())
+			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 2 comparator, the comparison should be 0, but is: %d", keyOwnername, comp2))
+			fmt.Println(errText)
+			return false, ne(errText)
 		}
 	}
 
-	// ...... iterazione in corso, TODO: spostare tutta la roba sopra e sotto -> qui dentro
-	// ...................... in teoria ho gia' fatto tutto ... eh eh
-
-	// TODO con il 2
-
-	// recursion on children
+	fmt.Println("recursion on children: left")
 	pathRun[depthCurrent] = true
 	equal, err := checkTreesEquality(t1, t2, n1.left, n2.left, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
-		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, "")
+		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
 	pathRun[depthCurrent] = false
+	fmt.Println("recursion on children: right")
 	equal, err = checkTreesEquality(t1, t2, n1.right, n2.right, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
-		return false, composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, "")
+		fmt.Printf("original error: %s\n", err.Error())
+		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
+		fmt.Println(errText)
+		return false, ne(errText)
 	}
 
+	fmt.Println("NO ERROR on checkTreesEquality")
 	return true, nil
 }
 
