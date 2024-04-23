@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"data_structures/avltree"
+	avltree "github.com/lonevetad/go-avltree"
 )
 
 type TestData struct {
@@ -112,6 +112,10 @@ func main() {
 				t.ForEach(fe, printForEach)
 				fmt.Println()
 			}
+
+			var b strings.Builder
+			t.InlineStringKeyOnly(func(ss string) { b.WriteString(ss) })
+			fmt.Println(b.String())
 		}
 
 		fmt.Println("\n now removing key: 3")

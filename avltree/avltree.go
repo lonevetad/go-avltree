@@ -154,27 +154,20 @@ func (t *AVLTree[K, V]) getNode(k K) *AVLTNode[K, V] {
 }
 
 func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
-	if t.size == 0 || t.root == t._NIL {
+	if t.IsEmpty() {
 		t.size = 1
 		t.root = n
 		t.minValue = n
+		t.cleanNil()
 		// self linking
 		n.nextInOrder = n
 		n.prevInOrder = n
-		// cleaning "NIL"
-		t._NIL.father = t._NIL
-		t._NIL.left = t._NIL
-		t._NIL.right = t._NIL
-		t._NIL.nextInOrder = t._NIL
-		t._NIL.prevInOrder = t._NIL
 
 		// tracking the chronological order
 		t.firstInserted = n
 		// self linking
 		n.nextInserted = n
 		n.prevInserted = n
-		t._NIL.nextInserted = t._NIL
-		t._NIL.prevInserted = t._NIL
 		return t.avlTreeConstructorParams.ValueZeroValue, nil
 	}
 
@@ -253,11 +246,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 
 	// we don't use n: it's height is 0 and it's connected only to NIL -> is balanced
 	t.insertFixup(x)
-	t._NIL.father = t._NIL
-	t._NIL.left = t._NIL
-	t._NIL.right = t._NIL
-	t._NIL.nextInOrder = t._NIL
-	t._NIL.prevInOrder = t._NIL
+	t.cleanNil()
 
 	// track chronological insertion
 	t.pushToLastInserted(n)
@@ -487,13 +476,8 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 	hasLeft := n.left != t._NIL
 	hasRight := n.right != t._NIL
 
-	fmt.Printf("\n\n ON REMOVING -> current node: %v\n\thas left: %t, has right: %t\n", n.keyVal.key, hasLeft, hasRight)
 	if hasLeft && hasRight {
 		successor := n.nextInOrder // 33
-
-		fmt.Println("has both left and right")
-		fmt.Printf("successor: < k: %v> , isLeaf: %t\n", successor.keyVal.key, t.isLeaf(successor))
-		fmt.Printf("successor father: < k: %v>\n", successor.father.keyVal.key)
 
 		// shift values
 		n.keyVal.key = successor.keyVal.key
@@ -849,6 +833,85 @@ func (n *AVLTNode[K, V]) toStringTabbed(fullLogNode bool, printer func(string)) 
 	printer(sb.String())
 }
 
+func (t *AVLTree[K, V]) inlineStringKeyOnly(printer func(string), n *AVLTNode[K, V]) {
+	printer("(")
+	if n != t._NIL && n != nil {
+		t.inlineStringKeyOnly(printer, n.left)
+		printer(" -> ")
+		printer(fmt.Sprintf("<h:%d; k:%v>", n.height, n.keyVal.key))
+		printer(" <- ")
+		t.inlineStringKeyOnly(printer, n.right)
+	}
+	printer(")")
+}
+
+func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V])) error {
+	if t.IsEmpty() || action == nil {
+		return nil
+	}
+	canContinue := true
+	iterMax := t.size + 1 //anti-bug
+	switch mode {
+	case InOrder:
+		{
+			current := t.minValue
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.nextInOrder
+				canContinue = current != start
+			}
+		}
+	case ReverseInOrder:
+		{
+			current := t.minValue.prevInOrder
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.prevInOrder
+				canContinue = current != start
+			}
+		}
+	case Stack:
+		{
+			current := t.firstInserted.prevInserted
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.prevInserted
+				canContinue = current != start
+			}
+		}
+	case Queue:
+		{
+			current := t.firstInserted
+			start := current
+			for canContinue && iterMax >= 0 { // do-while loop
+				iterMax--
+				if iterMax < 0 {
+					return fmt.Errorf("BUG ! for-each is looping more than expected")
+				}
+				action(current)
+				current = current.nextInserted
+				canContinue = current != start
+			}
+		}
+	}
+	return nil
+}
+
 //
 
 // PUBLIC functions
@@ -908,67 +971,7 @@ func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) error {
 	if t.IsEmpty() || action == nil {
 		return nil
 	}
-	canContinue := true
-	iterMax := t.size + 1 //anti-bug
-	switch mode {
-	case InOrder:
-		{
-			current := t.minValue
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.nextInOrder
-				canContinue = current != start
-			}
-		}
-	case ReverseInOrder:
-		{
-			current := t.minValue.prevInOrder
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.prevInOrder
-				canContinue = current != start
-			}
-		}
-	case Stack:
-		{
-			current := t.firstInserted.prevInserted
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.prevInserted
-				canContinue = current != start
-			}
-		}
-	case Queue:
-		{
-			current := t.firstInserted
-			start := current
-			for canContinue && iterMax >= 0 { // do-while loop
-				iterMax--
-				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
-				}
-				action(current.keyVal.key, current.keyVal.value)
-				current = current.nextInserted
-				canContinue = current != start
-			}
-		}
-	}
-	return nil
+	return t.forEachNode(mode, func(n *AVLTNode[K, V]) { action(n.keyVal.key, n.keyVal.value) })
 }
 
 func (t *AVLTree[K, V]) StringInto(fullLogNode bool, printer func(string)) {
@@ -993,6 +996,9 @@ func (t *AVLTree[K, V]) StringLogginFull(fullLogNode bool) string {
 func (t *AVLTree[K, V]) String() string {
 	return t.StringLogginFull(true)
 }
+func (t *AVLTree[K, V]) InlineStringKeyOnly(printer func(string)) {
+	t.inlineStringKeyOnly(printer, t.root)
+}
 
 func (n *AVLTNode[K, V]) String() string {
 	var sb strings.Builder
@@ -1009,83 +1015,19 @@ func (p *KeyVal[K, V]) PairValue() V {
 	return p.value
 }
 
-// func (n *AVLTNode[K, V]) GetKeyVal() KeyVal[K, V] { return n.keyVal }
-
-/**
- * Use with care.
- * <p>
- * {@inheritDoc}
- */
-/****
- *
- *
- *
- *
-@SuppressWarnings("unchecked")
-@Override
-protected V delete(nnn AVLTNode[K, V]) {
-	boolean hasLeft, hasRight
-	V v
-	NodeAVL_Full nToBeDeleted, succMaybeDeleted
-	if (root == NIL || nnn == NIL)
-		return null
-	v = null
-	nToBeDeleted = (NodeAVL_Full) nnn
-	v = nToBeDeleted.v
-	if (size == 1 && comp.compare(root.k, nToBeDeleted.k) == 0) {
-		v = super.delete(nToBeDeleted)
-		firstInserted = (NodeAVL_Full) NIL
-		((NodeAVL_Full) NIL).prevInserted = ((NodeAVL_Full) NIL).nextInserted = (NodeAVL_Full) NIL
-		return v
+func (b ForEachMode) String() string {
+	var name string
+	switch b {
+	case InOrder:
+		name = "InOrder"
+	case ReverseInOrder:
+		name = "ReverseInOrder"
+	case Queue:
+		name = "Queue"
+	case Stack:
+		name = "Stack"
+	default:
+		name = fmt.Sprintf("unrecognized ForEachMode: %b", b)
 	}
-	// real deletion starts here:
-	hasLeft = nToBeDeleted.left != NIL
-	hasRight = nToBeDeleted.right != NIL
-	succMaybeDeleted = hasRight ? (MapTreeAVLFull<K, V>.NodeAVL_Full) successorSorted(nnn) : //
-			(MapTreeAVLFull<K, V>.NodeAVL_Full) (hasLeft ? predecessorSorted(nnn) : NIL)//
-
-	v = super.delete(nnn)
-	// adjust connections
-	if (hasLeft || hasRight) {
-		if (size == 1) {
-			firstInserted = nToBeDeleted
-			nToBeDeleted.nextInserted = nToBeDeleted.prevInserted = nToBeDeleted
-		} else {
-			// nnn wasn't the removed node ...
-			// 1) unlink myself (nnn: nToBeDeleted) because that's me that should be removed
-			// 2) then I re-link myself because I took the data held by the
-			// node that has been removed in the end (succMaybeDeleted)
-			// ..1) unlink myself
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted.prevInserted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted.nextInserted
-			// 2) then adjust my links to the really-removed-nodes ..
-			nToBeDeleted.nextInserted = succMaybeDeleted.nextInserted
-			nToBeDeleted.prevInserted = succMaybeDeleted.prevInserted
-			// .. and the adjacent's nodes to point towards me
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted
-			if (succMaybeDeleted == firstInserted) { firstInserted = succMaybeDeleted.nextInserted }
-		}
-	} else {
-		if (size == 1) {
-			firstInserted = nToBeDeleted
-			nToBeDeleted.nextInserted = nToBeDeleted.prevInserted = nToBeDeleted
-		} else {
-			if (nToBeDeleted == firstInserted)
-				firstInserted = nToBeDeleted.nextInserted
-			nToBeDeleted.nextInserted.prevInserted = nToBeDeleted.prevInserted
-			nToBeDeleted.prevInserted.nextInserted = nToBeDeleted.nextInserted
-		}
-	}
-
-	((NodeAVL_Full) NIL).nextInserted = ((NodeAVL_Full) NIL).prevInserted = (NodeAVL_Full) NIL
-	if (root == NIL) {
-		firstInserted = (NodeAVL_Full) NIL
-		return v
-	}
-	return v
+	return name
 }
-
-
-
-*/
