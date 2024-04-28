@@ -1968,7 +1968,94 @@ func Test_Add_3(t *testing.T) {
 			}
 		*/
 	}
+}
 
+type TreeAlterationTestFunction func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData)
+
+func Test_Add_Massivo(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyTree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []int{
+		20, 10, 30, //
+		3, 5, //
+		50, 100, //
+		2, 1, //
+		42, 37, //
+	}
+	valuesInTotal := len(values)
+	// nodesTree := make([]*AVLTNode[int, *TestData], valuesInTotal)
+	nodesDummyTree := make([]*AVLTNode[int, *TestData], valuesInTotal)
+	alterationFns := make([]TreeAlterationTestFunction, valuesInTotal)
+
+	for i := 0; i < valuesInTotal; i++ {
+		// nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+	}
+	/*
+		for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
+			for i := 0; i < valuesInTotal; i++ {
+				linkNodes(nt[i], nt[(i+1)%len(values)], false)
+			}
+		}
+	*/
+	for i := 0; i < valuesInTotal; i++ {
+		linkNodes(nodesDummyTree[i], nodesDummyTree[(i+1)%len(values)], false)
+	}
+
+	// test functions
+
+	newBaseErrorText := func(index int, data *TestData, additionalText string) string {
+		return fmt.Sprintf("Error upon ADD MASSIVO on index %d with value %v, upon Put:\n\t%s\n", index, data.String(), additionalText)
+	}
+
+	alterationFns[0] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon first Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		nd := nodesDummyTree[index] // 0-th
+		treeDummy.root = nd
+		linkNills(treeDummy, nd)
+		treeDummy.size = 1
+		treeDummy.minValue = nd
+		treeDummy.firstInserted = nd
+		linkNodes(nd, nd, true)
+		linkNodes(nd, nd, false)
+
+		// check equality
+		var equal bool
+		equal, err = CheckTrees(treeOriginal, treeDummy)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, //
+				fmt.Sprintf("after %d-th Put, error: %s", index, err.Error())))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+
+	// TODO : do the remaining 10 test functions
+
+	//
+
+	var value *TestData
+	for i := 0; i < valuesInTotal; i++ {
+		value = NewTestDataFilled(values[i], fmt.Sprintf("v_%d", i))
+		(alterationFns[i])(t, tree, dummyTree, i, value)
+	}
 }
 
 //
@@ -2391,4 +2478,17 @@ func linkNodes[K any, V any](n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], isInOrder b
 		n1.nextInserted = n2
 		n2.prevInserted = n1
 	}
+}
+
+func linkNills[K any, V any](t *AVLTree[K, V], n *AVLTNode[K, V]) {
+	n.father = t._NIL
+	n.left = t._NIL
+	n.right = t._NIL
+	n.nextInOrder = t._NIL
+	n.prevInOrder = t._NIL
+	n.nextInserted = t._NIL
+	n.prevInserted = t._NIL
+	n.sizeLeft = 0
+	n.sizeRight = 0
+	n.height = 0
 }
