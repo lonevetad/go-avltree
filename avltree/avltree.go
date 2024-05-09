@@ -159,6 +159,9 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		t.root = n
 		t.minValue = n
 		t.cleanNil()
+		n.height = 0
+		n.sizeLeft = 0
+		n.sizeRight = 0
 		// self linking
 		n.nextInOrder = n
 		n.prevInOrder = n
@@ -252,7 +255,7 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 	t.pushToLastInserted(n)
 	t._NIL.nextInserted = t._NIL
 	t._NIL.prevInserted = t._NIL
-	return v, nil
+	return t.avlTreeConstructorParams.ValueZeroValue, nil
 }
 
 func (t *AVLTree[K, V]) insertFixup(n *AVLTNode[K, V]) {
@@ -301,14 +304,15 @@ func (t *AVLTree[K, V]) insertFixup(n *AVLTNode[K, V]) {
 			// no rotation
 			n = n.father
 		} else {
-			t.rotate(delta >= 2, n)
+			t.rotate(delta, n)
 			n = n.father.father
 		}
 	}
 	t.cleanNil()
 }
 
-func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
+func (t *AVLTree[K, V]) rotate(delta int64, n *AVLTNode[K, V]) {
+	isRight := delta >= 2
 	hl := int64(0)
 	hr := int64(0)
 
@@ -318,8 +322,19 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 		// right
 		nSide = n.left
 		if nSide.right.height > nSide.left.height {
+			// left-right rotation (left on b, right on c)
 			// three-rotation : ignoring this difference would cause the tree to be
-			// umbalanced again
+			// umbalanced again. x,y,z and w might be (all or none) NIL
+			//h  :   .   n=a
+			//   .   ./  .  \.
+			//h+1:  b.   .   x
+			//h+2:y  .c
+			//h+3:   z w
+			// ->
+			//h  :   c
+			//   .  /.\
+			//h+1: b . a
+			//h+2:y z.w x.
 			a := n
 			b := nSide
 			c := b.right
@@ -336,7 +351,7 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 				c.right.father = a
 			}
 			c.right = a
-			if c.left.father != t._NIL {
+			if c.left.father != t._NIL { // c.left.father == c, but this would modify "NIL" if "c == NIL"
 				c.left.father = b
 			}
 			b.right = c.left
@@ -352,7 +367,7 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 			t._NIL.father = t._NIL
 			if a == t.root {
 				t.root = c
-				//				c.father = t._NIL // not necessary, but done to be sure
+				c.father = t._NIL // not necessary, but done to be sure
 			}
 			a.sizeLeft = c.sizeRight
 			b.sizeRight = c.sizeLeft
@@ -360,10 +375,23 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 			c.sizeLeft += 1 + b.sizeLeft
 			return
 		}
-		n.left = n.left.right // i could have put "nSide. .." but the whole piece of code would be less clear
+		// right rotation on b
+		//h  :   .   n=a
+		//   .   ./  .  \.
+		//h+1:  b.   .   x
+		//h+2: c .y
+		//h+3:z w
+		// ->
+		//h  :   b
+		//   .  /.\
+		//h+1: c . a
+		//h+2:z w.y x.
 
+		// note: oldFather pointers moved outside
+		n.left = n.left.right // a.left == y
 		nSide.right.father = n
-		nSide.right = n
+		nSide.right = n // b.right == a
+
 		// adjust sizes
 		n.sizeLeft = nSide.sizeRight
 		nSide.sizeRight += 1 + n.sizeRight
@@ -371,6 +399,19 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 		// left
 		nSide = n.right
 		if nSide.left.height > nSide.right.height {
+			// right-left rotation (right on b, left on c)
+			// three-rotation : ignoring this difference would cause the tree to be
+			// umbalanced again. x,y,z and w might be (all or none) NIL
+			//h  :   .   n=a
+			//   .   ./  .  \.
+			//h+1:  x.   .   b
+			//h+2:   .   .c  .  y
+			//h+3:   .   z w
+			// ->
+			//h  :   c
+			//   .  /.\
+			//h+1: a . b
+			//h+2:x z.w y.
 			a := n
 			b := nSide
 			c := b.left
@@ -402,7 +443,7 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 			t._NIL.father = t._NIL
 			if a == t.root {
 				t.root = c
-				//						c.father = NIL // not necessary, but done to be sure
+				c.father = t._NIL // not necessary, but done to be sure
 			}
 			a.sizeRight = c.sizeLeft
 			b.sizeLeft = c.sizeRight
@@ -410,13 +451,27 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 			c.sizeRight += 1 + b.sizeRight
 			return
 		}
-		n.right = n.right.left
+		// left rotation on b
+		//h  :   .   n=a
+		//   .   ./  .  \.
+		//h+1:  x.   .   b
+		//h+2:   .   . y . c
+		//h+3:   .   .   .z w
+		// ->
+		//h  :   b
+		//   .  /.\
+		//h+1: a . c
+		//h+2:x y.z w.
+
+		// note: oldFather pointers moved outside
+		n.right = n.right.left // y
 		nSide.left.father = n
 		nSide.left = n
 		// adjust sizes
 		n.sizeRight = nSide.sizeLeft
 		nSide.sizeLeft += 1 + n.sizeLeft
 	}
+	// other clean-ups, adjustments, etc
 	if t._NIL == (oldFather) {
 		// i'm root .. ehm, no: i WAS root
 		t.root = nSide
@@ -442,7 +497,7 @@ func (t *AVLTree[K, V]) rotate(isRight bool, n *AVLTNode[K, V]) {
 	} else {
 		hr = nSide.right.height
 	}
-	if hl > hr {
+	if hl > hr { // isRight
 		nSide.height = hl + 1
 	} else {
 		nSide.height = hr + 1

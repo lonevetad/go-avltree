@@ -12,14 +12,27 @@ type errorTest struct {
 }
 
 func (et *errorTest) Error() string {
+	if et == nil {
+		return "WAIT, THIS ERROR IS FRICKING NULL!"
+	}
 	return et.errText
 }
 func (et *errorTest) String() string {
+	if et == nil {
+		return "errorTest is nil"
+	}
 	return et.errText
 }
+func (et *errorTest) IsNil() bool {
+	return et == nil
+}
+func (et *errorTest) IsEmpty() bool {
+	return et == nil || et.errText == ""
+}
+
 func ne(s string) *errorTest {
 	e := new(errorTest)
-	e.errText = s
+	(*e).errText = s
 	return e
 }
 
@@ -259,7 +272,6 @@ func TestRotateLeftLeft_3nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s\n", errText.Error())
 		t.Fatal(errText.Error())
 		return
 	}
@@ -357,7 +369,6 @@ func TestRotateRightRight_3nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s\n", errText.Error())
 		t.Fatal(errText)
 		return
 	}
@@ -391,8 +402,8 @@ func TestRotateLeftRight_3nodes(t *testing.T) {
 		}
 	}
 
-	//      3
-	//    /
+	//	  3
+	//	/
 	// 1
 	//  \
 	//   2
@@ -558,7 +569,6 @@ func TestRotateRightLeft_3nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s\n", errText)
 		t.Fatal(errText)
 		return
 	}
@@ -680,9 +690,7 @@ func TestRotateLeftLeft_5nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s.\n", errText.Error())
-		//t.Fatal(err.Error())
-		t.Errorf("%s", errText.Error())
+		t.Fatalf("%s", errText.Error())
 		return
 	}
 	if !areEquals {
@@ -803,7 +811,6 @@ func TestRotateRightRight_5nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s\n", errText.String())
 		t.Fatal(errText)
 		return
 	}
@@ -837,17 +844,17 @@ func TestRotateLeftRight_5nodes(t *testing.T) {
 		}
 	}
 
-	//              3
-	//          /       \
-	//       2             4
-	//    /
+	//			  3
+	//		  /	   \
+	//	   2			 4
+	//	/
 	// 0
 	//  \
 	//   1
 	// ->
-	//         3
-	//      /     \
-	//   1           4
+	//		 3
+	//	  /	 \
+	//   1		   4
 	//  / \
 	// 0   2
 
@@ -972,17 +979,17 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 		}
 	}
 
-	//        3
-	//    /       \
-	// 0             4
+	//		3
+	//	/	   \
+	// 0			 4
 	//   \
-	//     2
-	//    /
+	//	 2
+	//	/
 	//   1
 	// ->
-	//         3
-	//      /     \
-	//   1           4
+	//		 3
+	//	  /	 \
+	//   1		   4
 	//  / \
 	// 0   2
 
@@ -1074,7 +1081,6 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 
 	areEquals, errText := CheckTrees(tree, dummyTree)
 	if errText != nil {
-		fmt.Printf("an error occoured: %s\n", errText.Error())
 		t.Fatal(errText)
 		return
 	}
@@ -1729,7 +1735,6 @@ func Test_Add_3(t *testing.T) {
 
 		areEquals, errText := CheckTrees(tree, dummyTree)
 		if errText != nil {
-			fmt.Printf("an error occoured: %s\n", errText.String())
 			t.Fatal(errText)
 			return
 		}
@@ -1988,12 +1993,23 @@ func Test_Add_Massivo(t *testing.T) {
 		2, 1, //
 		42, 37, //
 	}
+	// at the end
+	//   .   .   .   .   .   . 20.
+	//   .   .   .   .   . / .   . \ .   .
+	//   .   .   .   . / .   .   .   . \ .
+	//   .   .   . / .   .   .   .   .   . \ .
+	//   .   . 5 .   .   .   .   .   .   .   .50 .
+	//   .  /.   .\  .   .   .   .   .   . / .   .\  .
+	//   2   .   .  10   .   .   .   .  42   .   .  100  .
+	//1  .  3.   .   .   .   .   .   .37 .50 .
+
 	valuesInTotal := len(values)
 	// nodesTree := make([]*AVLTNode[int, *TestData], valuesInTotal)
 	nodesDummyTree := make([]*AVLTNode[int, *TestData], valuesInTotal)
 	alterationFns := make([]TreeAlterationTestFunction, valuesInTotal)
 
 	for i := 0; i < valuesInTotal; i++ {
+		alterationFns[i] = nil
 		// nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
 		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
 	}
@@ -2014,7 +2030,8 @@ func Test_Add_Massivo(t *testing.T) {
 		return fmt.Sprintf("Error upon ADD MASSIVO on index %d with value %v, upon Put:\n\t%s\n", index, data.String(), additionalText)
 	}
 
-	alterationFns[0] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+	indexNode := 0
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
 		oldV, err := treeOriginal.Put(data.Id, data)
 		if err != nil {
 			t.Fatal(newBaseErrorText(index, data, err.Error()))
@@ -2027,7 +2044,7 @@ func Test_Add_Massivo(t *testing.T) {
 		// set-up tree dummy
 		nd := nodesDummyTree[index] // 0-th
 		treeDummy.root = nd
-		linkNills(treeDummy, nd)
+		linkNills(treeDummy, nd, true)
 		treeDummy.size = 1
 		treeDummy.minValue = nd
 		treeDummy.firstInserted = nd
@@ -2035,11 +2052,556 @@ func Test_Add_Massivo(t *testing.T) {
 		linkNodes(nd, nd, false)
 
 		// check equality
-		var equal bool
-		equal, err = CheckTrees(treeOriginal, treeDummy)
+
+		err = nil
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 1
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
 		if err != nil {
-			t.Fatal(newBaseErrorText(index, data, //
-				fmt.Sprintf("after %d-th Put, error: %s", index, err.Error())))
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+			return
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon second Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20
+		//   /
+		// 10
+		nd := nodesDummyTree[index] // 1-th == 10
+		linkNills(treeDummy, nd, true)
+		treeDummy.root.left = nd
+		nd.father = treeDummy.root
+		treeDummy.size++
+		linkNodes(nd, treeDummy.minValue, true)
+		linkNodes(treeDummy.minValue, nd, true) // close the loop
+		treeDummy.minValue = nd
+		linkNodes(treeDummy.firstInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		treeDummy.root.sizeLeft = 1
+		treeDummy.root.height = 1
+
+		// check equality
+
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 2
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon third Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20.
+		//   /   .\
+		// 10.   . 30
+		nd := nodesDummyTree[index] // 2-th == 30
+		linkNills(treeDummy, nd, true)
+		treeDummy.root.right = nd
+		nd.father = treeDummy.root
+		treeDummy.size++
+		linkNodes(treeDummy.root, nd, true)
+		linkNodes(nd, treeDummy.root.left, true) // close the loop
+		if treeDummy.root.right != treeDummy.minValue.prevInOrder {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon third Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+		linkNodes(treeDummy.root.left, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		treeDummy.root.sizeRight = 1
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 3
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon fourth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20.
+		//   /   .\
+		// 10.   . 30
+		//3
+		nd := nodesDummyTree[index] // 3-th == 3
+		linkNills(treeDummy, nd, true)
+		treeDummy.root.left.left = nd
+		nd.father = treeDummy.root.left
+		treeDummy.size++
+		linkNodes(treeDummy.minValue.prevInOrder, nd, true) // 10->30 & 3
+		linkNodes(nd, treeDummy.minValue, true)             // close the loop
+		treeDummy.minValue = nd
+		linkNodes(treeDummy.root.right, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		treeDummy.root.sizeLeft = 2
+		treeDummy.root.height = 2
+		treeDummy.root.left.sizeLeft = 1
+		treeDummy.root.left.height = 1
+
+		// check equality
+
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 4
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon fourth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20.
+		//   /   .\
+		// 10.   . 30
+		//3
+		// 5
+		// -> rotate! LEFT-RIGHT
+
+		//   . 20.
+		//   /   .\
+		//  5.   . 30
+		//3 10
+		nd := nodesDummyTree[index] // 4-th == 5
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_10 := treeDummy.root.left
+		node_3 := node_10.left
+		linkNills(treeDummy, node_3, false)
+		linkNills(treeDummy, node_10, false)
+		treeDummy.root.left = nd
+		nd.father = treeDummy.root
+		nd.left = node_3
+		node_3.father = nd
+		nd.right = node_10
+		node_10.father = nd
+
+		nd.father = treeDummy.root.left
+		linkNodes(node_3, nd, true)
+		linkNodes(nd, node_10, true) // close the loop
+		linkNodes(node_3, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		treeDummy.root.sizeLeft = 3
+		treeDummy.root.left.sizeLeft = 1 // nd
+		treeDummy.root.left.sizeRight = 1
+		nd.height = 1
+		node_3.sizeLeft = 0
+		node_3.sizeRight = 0
+		node_3.height = 0
+		node_10.sizeLeft = 0
+		node_10.sizeRight = 0
+		node_10.height = 0
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 5
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon fifth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20.
+		//   /   .\
+		//  5.   . 30
+		//3  10  .   50
+		nd := nodesDummyTree[index] // 5-th == 50
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_30 := treeDummy.root.right
+		node_30.right = nd
+		nd.father = node_30
+		linkNodes(node_30, nd, true)
+		linkNodes(nd, treeDummy.minValue, true) // close the loop
+		if treeDummy.root.left != treeDummy.firstInserted.prevInserted {
+			t.Fatalf("somehow the last inserted (%v) does not coincide with the expected one (%v)\n", treeDummy.firstInserted.prevInserted, treeDummy.root.left)
+		}
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+		node_30.height = 1
+		node_30.sizeRight = 1
+		dummyTree.root.sizeRight++
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 6
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon sixth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   . 20.
+		//   /   .\
+		//  5.   . 50 // a left rotation happened here
+		//3  10  .30 100
+		nd := nodesDummyTree[index] // 6-th == 100
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_30 := treeDummy.root.right
+		node_50 := node_30.right
+		// TODO FROM HERE
+		treeDummy.root.right = node_50
+		treeDummy.root.sizeRight = 3
+		node_30.sizeRight = 0
+		node_30.right = dummyTree._NIL
+		node_30.father = node_50
+		node_30.height = 0
+		node_50.father = dummyTree.root
+		node_50.left = node_30
+		node_50.right = nd
+		node_50.father = dummyTree.root
+		node_50.height = 1
+		node_50.sizeLeft = 1
+		node_50.sizeRight = 1
+		nd.father = node_50
+
+		linkNodes(node_50, nd, true)
+		linkNodes(nd, treeDummy.minValue, true) // close the loop
+		//if treeDummy.root.left != treeDummy.firstInserted.prevInserted {
+		//	t.Fatalf("somehow the last inserted (%v) does not coincide with the expected one (%v)\n", treeDummy.firstInserted.prevInserted, treeDummy.root.left)
+		//}
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 7
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon seventh Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   .   . 20.
+		//   .  /.   .  \
+		//   .5  .   .   . 50
+		// 3 .10 .   .  30  100
+		//2
+		nd := nodesDummyTree[index] // 7-th == 2
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_3 := treeDummy.root.left.left
+		treeDummy.root.height++
+		treeDummy.root.sizeLeft++
+		treeDummy.root.left.height++
+		treeDummy.root.left.sizeLeft++
+		node_3.height++
+		node_3.sizeLeft++
+		node_3.left = nd
+		nd.father = node_3
+		maxValue := treeDummy.minValue.prevInOrder
+		linkNodes(nd, node_3, true)
+		linkNodes(maxValue, nd, true) // close the loop
+		treeDummy.minValue = nd
+		//if treeDummy.root.left != treeDummy.firstInserted.prevInserted {
+		//	t.Fatalf("somehow the last inserted (%v) does not coincide with the expected one (%v)\n", treeDummy.firstInserted.prevInserted, treeDummy.root.left)
+		//}
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 8
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon eight Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   .   . 20.
+		//   .  /.   .  \
+		//   .5  .   .   . 50
+		// 2 .10 .   .  30  100
+		//1 3 // rotation happened on "2"
+		nd := nodesDummyTree[index] // 8-th == 1
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		//node_3_path := []int{0, 0, 0}			// []bool{true,true,true}
+		node_3 := treeDummy.root.left.left
+		//node_2, _ := gnp(treeDummy, node_3_path) // treeDummy.root.left.left.left
+		node_2 := node_3.left
+		node_2.left = nd
+		nd.father = node_2
+		node_2.right = node_3
+		node_2.father = node_3.father
+		node_3.father.left = node_2
+		node_3.father = node_2
+		node_3.left = treeDummy._NIL
+		node_3.right = treeDummy._NIL
+		treeDummy.root.sizeLeft++
+		treeDummy.root.left.sizeLeft++
+		node_3.height = 0
+		node_3.sizeLeft = 0
+		node_3.sizeRight = 0
+		node_2.height = 1
+		node_2.sizeLeft = 1
+		node_2.sizeRight = 1
+		maxValue := treeDummy.minValue.prevInOrder
+		linkNodes(nd, node_2, true)
+		linkNodes(maxValue, nd, true) // close the loop
+		treeDummy.minValue = nd
+		//if treeDummy.root.left != treeDummy.firstInserted.prevInserted {
+		//	t.Fatalf("somehow the last inserted (%v) does not coincide with the expected one (%v)\n", treeDummy.firstInserted.prevInserted, treeDummy.root.left)
+		//}
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+	indexNode++ // 9
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon nineth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   .   . 20.
+		//   .  /.   .  \
+		//   .5  .   .   . 50
+		// 2 .10 .   .  30  100
+		//1 3.   .   .   42
+		nd := nodesDummyTree[index] // 9-th == 42
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_30 := treeDummy.root // used as temp
+		node_30.sizeRight++
+		node_30 = node_30.right //50
+		node_50 := node_30
+		node_50.height++
+		node_50.sizeLeft++
+		node_30 = node_50.left // 30
+		node_30.height++
+		node_30.sizeRight++
+		node_30.right = nd
+		nd.father = node_30
+
+		linkNodes(nd, node_50, true)
+		linkNodes(node_30, nd, true) // close the loop
+		//if treeDummy.root.left != treeDummy.firstInserted.prevInserted {
+		//	t.Fatalf("somehow the last inserted (%v) does not coincide with the expected one (%v)\n", treeDummy.firstInserted.prevInserted, treeDummy.root.left)
+		//}
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
+		}
+		if !equal {
+			t.Fatal(newBaseErrorText(index, data,
+				fmt.Sprintf("trees should be equal:\n\toriginal tree: %s\n\tdummy tree: %s\n", treeOriginal, treeDummy)))
+		}
+	}
+
+	indexNode++ // 10 TODO
+	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
+		oldV, err := treeOriginal.Put(data.Id, data)
+		if err != nil {
+			t.Fatal(newBaseErrorText(index, data, err.Error()))
+		}
+		if oldV != treeOriginal.avlTreeConstructorParams.ValueZeroValue {
+			t.Fatalf(newBaseErrorText(index, data, fmt.Sprintf("returned value upon tenth Put is not the zero value:\n\t <%v> - <%v>\n", oldV,
+				treeOriginal.avlTreeConstructorParams.ValueZeroValue)))
+		}
+
+		// set-up tree dummy
+		//   .   . 20.
+		//   .  /.   .  \
+		//   .5  .   .   . 50
+		// 2 .10 .   .  37  100
+		//1 3.   .   .30 42 // right-left rotation happened here
+		nd := nodesDummyTree[index] // 10-th == 37
+
+		treeDummy.cleanNil()
+		linkNills(treeDummy, nd, true)
+		treeDummy.size++
+		node_30 := treeDummy.root // used as temp
+		node_30.sizeRight++
+		node_50 := node_30.right //50
+		node_50.sizeLeft++
+		node_30 = node_50.left // 30
+		node_30.father = nd
+		node_50.left = nd
+		nd.father = node_50
+		nd.left = node_30
+		node_30.height = 0
+		node_30.sizeRight = 0
+		node_42 := node_30.right // 42
+		nd.right = node_42
+		node_42.father = nd
+		node_30.right = dummyTree._NIL
+		nd.height = 1
+		nd.sizeLeft = 1
+		nd.sizeRight = 1
+
+		linkNodes(nd, node_42, true)
+		linkNodes(node_30, nd, true)                         // close the loop
+		lastInserted := treeDummy.firstInserted.prevInserted // node "5"
+		linkNodes(lastInserted, nd, false)
+		linkNodes(nd, treeDummy.firstInserted, false) // close the loop
+
+		// check equality
+		equal, checkError := CheckTrees(treeOriginal, treeDummy)
+		if checkError != nil {
+			errorText := checkError.Error()
+			additionalText := fmt.Sprintf("after %d-th Put, error: %s", index, errorText)
+			t.Fatal(newBaseErrorText(index, data, additionalText))
 		}
 		if !equal {
 			t.Fatal(newBaseErrorText(index, data,
@@ -2054,7 +2616,9 @@ func Test_Add_Massivo(t *testing.T) {
 	var value *TestData
 	for i := 0; i < valuesInTotal; i++ {
 		value = NewTestDataFilled(values[i], fmt.Sprintf("v_%d", i))
-		(alterationFns[i])(t, tree, dummyTree, i, value)
+		if alterationFns[i] != nil {
+			(alterationFns[i])(t, tree, dummyTree, i, value)
+		}
 	}
 }
 
@@ -2169,12 +2733,11 @@ func DumpTreesForErrors[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], addi
 }
 func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *errorTest) {
 	if t1 == t2 {
-		return true, nil // fmt.Errorf("indentitarly equal trees")
+		return true, nil
 	}
 
 	if t1.size != t2.size {
 		errText := fmt.Sprintf("different sizes: %d and %d\n", t1.size, t2.size)
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
 
@@ -2184,18 +2747,15 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 	if t1.IsEmpty() != t2.IsEmpty() {
 		if t1.IsEmpty() {
 			errText := fmt.Sprintf("t1 is empty but t2 is not: t2 has %d nodes", t2.size)
-			fmt.Println(errText)
 			return false, ne(errText)
 		}
 		errText := fmt.Sprintf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
 	//fmt.Println("on CheckTrees, checking height")
 	if t1.root.height != t2.root.height {
 		errText := DumpTreesForErrors(t1, t2, //
 			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height))
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
 
@@ -2205,11 +2765,8 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 		pathRun[i] = false
 	}
 
-	//fmt.Println("on CheckTrees, checking checkTreesEquality")
 	equal, err := checkTreesEquality(t1, t2, t1.root, t2.root, pathRun, 0)
-	//fmt.Printf("checkTreesEquality has returned with: %t\n\terr: %v\n", equal, err)
 	if (!equal) || (err != nil) {
-		fmt.Println(err.Error())
 		return false, err
 	}
 
@@ -2234,7 +2791,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 			ct := currentTree
 			fem := forEachM
 			return func(node *AVLTNode[K, V]) {
-				isDangling := (node.father == ct._NIL) && (node.left == ct._NIL) && (node.right == ct._NIL)
+				isDangling := (ct.size > 1) && (node.father == ct._NIL) && (node.left == ct._NIL) && (node.right == ct._NIL)
 
 				if isDangling {
 					var sb strings.Builder
@@ -2250,7 +2807,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 					sb.WriteString(" >, current node is dangling; the node:\n\t--")
 
 					if node == ct._NIL {
-						sb.WriteString("WAIT ! I'M NIL ! WTF???")
+						sb.WriteString("WAIT ! current node is NIL ! WTF???")
 					} else {
 						node.toStringTabbed(true, func(s string) { sb.WriteString(s) })
 					}
@@ -2293,7 +2850,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *erro
 		errs2 = nil
 		if hasErrors {
 			errText := sb.String()
-			fmt.Println(errText)
+			sb.Reset()
 			return false, ne(errText)
 		}
 
@@ -2330,26 +2887,21 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		return true, nil
 	}
 
-	// fmt.Println("checking n1 nullity")
 	if n1 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of first tree is %s (the second one didn't)", nullity))
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
-	// fmt.Println("checking n2 nullity")
 	if n2 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of second tree is %s (the first one didn't)", nullity))
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
 
-	// fmt.Println("checking : height, size left, size right")
 	integers := []string{"height", "size left", "size right"}
 	int_1 := []int64{n1.height, n1.sizeLeft, n1.sizeRight}
 	int_2 := []int64{n2.height, n2.sizeLeft, n2.sizeRight}
@@ -2359,8 +2911,6 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		if int_1[i] != int_2[i] {
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("checking integers; %s comparison failed: node1 ones= %d, node2 ones= %d", integers[i], int_1[i], int_2[i]))
-			fmt.Printf("error on checking %s integers:\n", integers[i])
-			fmt.Println(errText)
 			return false, ne(errText)
 		}
 	}
@@ -2377,7 +2927,6 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	pointersNode1 := []**AVLTNode[K, V]{&n1, &(n1.father), &(n1.left), &(n1.right)}
 	pointersNode2 := []**AVLTNode[K, V]{&n2, &(n2.father), &(n2.left), &(n2.right)}
 	pointerName := []string{"", "'s father", "'s left", "'s right"}
-	// fmt.Println("checking pointers nullity")
 	i = 0
 	l = len(pointerName)
 	for ; i < l; i++ {
@@ -2391,22 +2940,15 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		// checking : NIL-ity
 
 		if (node1 == t1._NIL) != (node2 == t2._NIL) { // the "XOR" ("^") does not exists, "!=" is equivalent
-			fmt.Printf("error on checking node%s pointer nullity\n", pointerName[i])
-			fmt.Printf("\tn1:%s\n", n1)
-			fmt.Printf("\tnode 1:%s\n", node1)
-			fmt.Printf("\tn2:%s\n", n2)
-			fmt.Printf("\tnode 2:%s\n", node2)
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s NIL-ity, they are different: the nil-comparison results in < %t > for 1 and in < %t > for 2\n\t the checked node 1: %v\n\t the checked node 2: %v\n", //
 					nameNode, (node1 == t1._NIL), (node2 == t2._NIL), node1, node2))
-			fmt.Println(errText)
 			return false, ne(errText)
 		}
 		// if both nodes are NOT "NIL", then they will be checked in the for loop below
 
 	}
 
-	// fmt.Println("checking : keys, various")
 	// NOTE: those checks are shifted outside the for loop above because:
 	// -) the father should already be checked (ERROR: IT WON'T IF N1 & N2 ARE THE ROOTS! HOW TO DEAL WITH THIS SITUATION [== "those roots"] ?)
 	// -) the children (left & right) will be checked by the recursion -> no need to check tem __twice__ ["thrice", actually, due to the "father" check]
@@ -2426,50 +2968,48 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		comp2 = int(t2.avlTreeConstructorParams.Comparator(node1.keyVal.key, node2.keyVal.key))
 
 		if comp1 != 0 {
-			fmt.Printf("error on comp 1: value %d\nnode 1: %v\n\t node 2:%v\n\t", comp1, node1, node2)
-			fmt.Print("t1\n\t")
-			fmt.Println(t1.String())
-			fmt.Print("t2\n\t")
-			fmt.Println(t2.String())
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 1 comparator, the comparison should be 0, but is: %d", keyOwnername, comp1))
-			fmt.Println(errText)
 			return false, ne(errText)
 		}
 		if comp2 != 0 {
-			fmt.Printf("error on comp 2: value %d\nnode 1: %v\n\t node 2:%v\n\t", comp2, node1, node2)
-			fmt.Print("t1\n\t")
-			fmt.Println(t1.String())
-			fmt.Print("t2\n\t")
-			fmt.Println(t2.String())
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 2 comparator, the comparison should be 0, but is: %d", keyOwnername, comp2))
-			fmt.Println(errText)
 			return false, ne(errText)
 		}
 	}
 
-	// fmt.Println("recursion on children: left")
+	//fmt.Printf("nodes << n1:%v ; n2:%v >>, recursion on children: left\n", n1.keyVal.key, n2.keyVal.key)
 	pathRun[depthCurrent] = true
 	equal, err := checkTreesEquality(t1, t2, n1.left, n2.left, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
-		fmt.Println(errText)
+
 		return false, ne(errText)
 	}
 	pathRun[depthCurrent] = false
-	// fmt.Println("recursion on children: right")
+	//fmt.Printf("nodes << n1:%v ; n2:%v >>, recursion on children: right\n", n1.keyVal.key, n2.keyVal.key)
 	equal, err = checkTreesEquality(t1, t2, n1.right, n2.right, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
-		fmt.Printf("original error: %s\n", err.Error())
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
-		fmt.Println(errText)
 		return false, ne(errText)
 	}
-
+	/*
+		var sb strings.Builder
+		for i := 0; i < depthCurrent; i++ {
+			sb.WriteRune('\t')
+		}
+		tabsText := sb.String()
+		fmt.Printf("\n\n%sunder the sea\n%sat depth %d you'll see\n%si'll return true\n%ssince I've been through\n%sa code bug-freeeee\n\n",
+			tabsText, tabsText, depthCurrent, tabsText, tabsText, tabsText)
+	*/
 	return true, nil
 }
 
+/**
+ * set the first node as the "previous" of the second one and the second node as the "next"
+ * node of the first one.
+ */
 func linkNodes[K any, V any](n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], isInOrder bool) {
 	if isInOrder {
 		n1.nextInOrder = n2
@@ -2480,15 +3020,18 @@ func linkNodes[K any, V any](n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], isInOrder b
 	}
 }
 
-func linkNills[K any, V any](t *AVLTree[K, V], n *AVLTNode[K, V]) {
+func linkNills[K any, V any](t *AVLTree[K, V], n *AVLTNode[K, V], shouldClearOrderings bool) {
 	n.father = t._NIL
 	n.left = t._NIL
 	n.right = t._NIL
+	n.sizeLeft = 0
+	n.sizeRight = 0
+	n.height = 0
+	if !shouldClearOrderings {
+		return
+	}
 	n.nextInOrder = t._NIL
 	n.prevInOrder = t._NIL
 	n.nextInserted = t._NIL
 	n.prevInserted = t._NIL
-	n.sizeLeft = 0
-	n.sizeRight = 0
-	n.height = 0
 }
