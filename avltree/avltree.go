@@ -122,17 +122,23 @@ func (t *AVLTree[K, V]) removeToLastInserted(n *AVLTNode[K, V]) {
 	n.prevInserted.nextInserted = n.nextInserted
 	n.nextInserted.prevInserted = n.prevInserted
 }
+
+func (t *AVLTree[K, V]) cleanNode(n *AVLTNode[K, V]) {
+	n.father = t._NIL
+	n.left = t._NIL
+	n.right = t._NIL
+	n.prevInOrder = t._NIL
+	n.nextInOrder = t._NIL
+	n.prevInserted = t._NIL
+	n.nextInserted = t._NIL
+	n.height = 0
+	n.sizeLeft = 0
+	n.sizeRight = 0
+}
+
 func (t *AVLTree[K, V]) cleanNil() {
-	t._NIL.father = t._NIL
-	t._NIL.left = t._NIL
-	t._NIL.right = t._NIL
-	t._NIL.prevInOrder = t._NIL
-	t._NIL.nextInOrder = t._NIL
-	t._NIL.prevInserted = t._NIL
-	t._NIL.nextInserted = t._NIL
+	t.cleanNode(t._NIL)
 	t._NIL.height = DEPTH_INITIAL
-	t._NIL.sizeLeft = 0
-	t._NIL.sizeRight = 0
 }
 
 func (t *AVLTree[K, V]) getNode(k K) *AVLTNode[K, V] {
@@ -646,31 +652,186 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 	return v, nil
 }
 
-func (t *AVLTree[K, V]) index(n *AVLTNode[K, V]) int {
-	i := 0
-	if n.sizeLeft > 0 {
-		i = int(n.sizeLeft)
+func (t *AVLTree[K, V]) index(n *AVLTNode[K, V]) int64 {
+	if n == t._NIL {
+		return 0
 	}
-	indexNodeLeftInorder := -1
-	nodeLeftInOrder := n
-	// travel back the "left full-branching" until we find the right branching
-	// this way, the father causing the right branching will be the "previous in order"
-	// of the "n" node. Add its index to this "n" current one
+	i := n.sizeLeft
 
-	for nodeLeftInOrder != t._NIL && nodeLeftInOrder.father != t._NIL && nodeLeftInOrder.father.right != nodeLeftInOrder {
-		nodeLeftInOrder = nodeLeftInOrder.father
+	lowestGrandDadOnLeft := n
+	// are we the root? That means, is there no other node
+	// somewhere on the "left" (in a lower height)?
+	for lowestGrandDadOnLeft != t._NIL && lowestGrandDadOnLeft == lowestGrandDadOnLeft.father.left {
+		lowestGrandDadOnLeft = lowestGrandDadOnLeft.father
 	}
-	if nodeLeftInOrder != t._NIL && nodeLeftInOrder.father != t._NIL { // && n.father.right == n
-		indexNodeLeftInorder = t.index(nodeLeftInOrder.father)
-	} //else { indexNodeLeftInorder = -1 }
-	if indexNodeLeftInorder >= 0 {
-		i += indexNodeLeftInorder + 1
+	//if exists a node "M" having "n" as right, then "n" is on the
+	// right side of a bigger sub-tree, whose root is "M". Get M's
+	// index, then add n's left part (leftSize) then count n
+	// itself (+1) in order to include M in the "total noudes count"
+	if lowestGrandDadOnLeft != t._NIL && lowestGrandDadOnLeft.father != t._NIL && (lowestGrandDadOnLeft.father.right == lowestGrandDadOnLeft) {
+		i += 1 + t.index(lowestGrandDadOnLeft.father)
 	}
 	return i
 }
 
 func (t *AVLTree[K, V]) isLeaf(n *AVLTNode[K, V]) bool {
 	return t == nil || n == nil || (n.left == t._NIL && n.right == t._NIL)
+}
+
+func (t *AVLTree[K, V]) getNodeAt(index int64) *AVLTNode[K, V] {
+	if t.IsEmpty() || t.size < 1 || index < 0 || index >= t.size {
+		return nil
+	}
+	if t.size == 1 {
+		return t.root
+	}
+	n := t.root
+	var nprev *AVLTNode[K, V]
+	nprev = t.root
+
+	notFound := true
+	for notFound && index >= 0 && n != t._NIL {
+		nprev = n
+
+		if index < n.sizeLeft {
+			n = n.left
+		} else {
+			index -= n.sizeLeft
+			if index > 0 {
+				index-- // remove current node from the "count" of the "available one"
+				n = n.right
+			} else {
+				notFound = false // FOUND! close the loop
+			}
+		}
+	}
+	return nprev
+}
+
+/*
+the assignments to "left" and "right" pointers disrupt the tree, whose integrity is
+fundamental to make "getNodeAt" properly work.
+So, the "left" nodes are placed in the "prev in order" pointers while the "right"
+nodes are placed in the "next in order" pointers.
+*/
+func (t *AVLTree[K, V]) getRootForSubtreeOnCompacting(lowerIndex, upperIndex int64, dept int) *AVLTNode[K, V] {
+	var newLeft, newRight *AVLTNode[K, V]
+
+	if upperIndex <= lowerIndex {
+		currentNode := t.getNodeAt(upperIndex)
+		currentNode.height = 0
+		// mark me as a leaf
+		currentNode.prevInOrder = t._NIL
+		currentNode.nextInOrder = t._NIL
+		currentNode.father = t._NIL
+		return currentNode
+	}
+
+	currentIndex := (lowerIndex + upperIndex) >> 1
+
+	currentNode := t.getNodeAt(currentIndex)
+	for i := dept; i > 0; i-- {
+		fmt.Print("\t")
+	}
+	fmt.Printf("at dept %d, currentIndex %d, found node < %v >\n", dept, currentIndex, currentNode.keyVal.key)
+
+	if lowerIndex < currentIndex {
+		newLeft = t.getRootForSubtreeOnCompacting(lowerIndex, currentIndex-1, dept+1)
+	} else {
+		newLeft = t._NIL
+	}
+	if currentIndex < upperIndex {
+		newRight = t.getRootForSubtreeOnCompacting(currentIndex+1, upperIndex, dept+1)
+	} else {
+		newRight = t._NIL
+	}
+	t.cleanNil()
+
+	if newLeft == t._NIL {
+		currentNode.prevInOrder = t._NIL
+	} else {
+		currentNode.prevInOrder = newLeft
+	}
+	if newRight == t._NIL {
+		currentNode.nextInOrder = t._NIL
+	} else {
+		currentNode.nextInOrder = newRight
+	}
+
+	t.cleanNil()
+
+	return currentNode
+}
+
+/* returns: the nodes holding the minimum and maximum keys respectively (among the nodes
+* in this sub-tree)
+ */
+func (t *AVLTree[K, V]) reconstructTreeOnCompactingOnRoot(currentRoot *AVLTNode[K, V]) (*AVLTNode[K, V], *AVLTNode[K, V]) {
+	if t._NIL == currentRoot {
+		// kinda-error
+		return t._NIL, t._NIL
+	}
+	if currentRoot.prevInOrder == t._NIL && currentRoot.nextInOrder == t._NIL {
+		// I'm a LEAF!
+		currentRoot.left = t._NIL
+		currentRoot.right = t._NIL
+		currentRoot.height = 0
+		currentRoot.sizeLeft = 0
+		currentRoot.sizeRight = 0
+		return currentRoot, currentRoot // a leaf holds both the min and max values of a itself-tree
+	}
+
+	var minNode, maxNode, newPrev, newNext *AVLTNode[K, V]
+
+	minNode, newPrev = t.reconstructTreeOnCompactingOnRoot(currentRoot.prevInOrder)
+	newNext, maxNode = t.reconstructTreeOnCompactingOnRoot(currentRoot.nextInOrder)
+
+	//re-link left, right and fathers, then sizes left/right and height
+	currentRoot.left = currentRoot.prevInOrder
+	if currentRoot.prevInOrder == t._NIL {
+		currentRoot.sizeLeft = 0
+	} else {
+		currentRoot.left.father = currentRoot
+		currentRoot.sizeLeft = currentRoot.left.sizeLeft + 1 + currentRoot.left.sizeRight
+	}
+	currentRoot.right = currentRoot.nextInOrder
+	if currentRoot.nextInOrder == t._NIL {
+		currentRoot.sizeRight = 0
+	} else {
+		currentRoot.right.father = currentRoot
+		currentRoot.sizeRight = currentRoot.right.sizeLeft + 1 + currentRoot.right.sizeRight
+	}
+	//height
+	if currentRoot.left.height > currentRoot.right.height {
+		currentRoot.height = currentRoot.left.height + 1
+	} else {
+		currentRoot.height = currentRoot.right.height + 1
+	}
+
+	// re-link prev/next in order
+	if newPrev != t._NIL {
+		newPrev.nextInOrder = currentRoot
+		currentRoot.prevInOrder = newPrev
+	}
+	if newNext != t._NIL {
+		newNext.prevInOrder = currentRoot
+		currentRoot.nextInOrder = newNext
+	}
+
+	if minNode == t._NIL {
+		minNode = currentRoot
+	}
+	if maxNode == t._NIL {
+		maxNode = currentRoot
+	}
+	return minNode, maxNode
+}
+
+func (t *AVLTree[K, V]) reconstructTreeOnCompacting(currentRoot *AVLTNode[K, V]) {
+	minNode, maxNode := t.reconstructTreeOnCompactingOnRoot(currentRoot)
+	// close the loop
+	minNode.prevInOrder = maxNode
+	maxNode.nextInOrder = minNode
 }
 
 func (t *AVLTree[K, V]) recalculateHeight(n *AVLTNode[K, V], recurseToRoot bool) {
@@ -698,6 +859,7 @@ func (t *AVLTree[K, V]) recalculateHeight(n *AVLTNode[K, V], recurseToRoot bool)
 
 	}
 }
+
 func (t *AVLTree[K, V]) recalculateSizes(n *AVLTNode[K, V], recurseToRoot bool) {
 	if t._NIL == n {
 		return
@@ -840,7 +1002,7 @@ func (t *AVLTree[K, V]) toStringTabbed(fullLogNode bool, n *AVLTNode[K, V], tabL
 	}
 
 	sb.WriteString(" -- at index= ")
-	sb.WriteString(strconv.Itoa(t.index(n)))
+	sb.WriteString(strconv.FormatInt(t.index(n), 10))
 	sb.WriteString(" we have ")
 	n.toStringTabbed(fullLogNode, func(s string) { sb.WriteString(s) })
 	sb.WriteString(" ;; and value= <<")
@@ -1000,7 +1162,23 @@ func (t *AVLTree[K, V]) Size() int64 {
 	return t.size
 }
 
+func (t *AVLTree[K, V]) Clear() {
+	t.size = 0
+	t.root = t._NIL
+	t.minValue = t._NIL
+	t.firstInserted = t._NIL
+	t.cleanNil()
+}
+
 func (t *AVLTree[K, V]) NILL() interface{} { return t._NIL }
+
+func (t *AVLTree[K, V]) GetAt(index int64) (*KeyVal[K, V], error) {
+	n := t.getNodeAt(index)
+	if n == nil {
+		return nil, fmt.Errorf("no node to retrieve")
+	}
+	return &n.keyVal, nil
+}
 
 func (t *AVLTree[K, V]) Put(key K, value V) (V, error) {
 	n := t.newNode(key, value)
@@ -1020,6 +1198,33 @@ func (t *AVLTree[K, V]) Remove(k K) (V, error) {
 
 func (t *AVLTree[K, V]) IsEmpty() bool {
 	return t == nil || t.root == t._NIL
+}
+
+func (t *AVLTree[K, V]) CompactBalance() {
+	if t.size < 8 {
+		/* Adding a series of sorted numbers leads
+		to a heavily "unbalanced" tree towards a single side,
+		creating a fractal-like structure whose sizes
+		follows the Fibonacci numbers.
+		3 nodes lead to a obviously balanced tree.
+		5 nodes lead to a tree that seems prone to umbalance,
+		but it is not; meanwile a six-th node would cause
+		a rotation to happen.
+		A rotation involving the root happen after increasing the
+		size over a Fibonacci number and the next one is 8.
+		7 leads to a full tree, while 8 increase the tree height
+		without a rotation. So 8 is the threshold.
+		*/
+		return
+	}
+
+	newRoot := t.getRootForSubtreeOnCompacting(0, t.size-1, 0)
+	t.cleanNil()
+	t.root = newRoot
+	t.reconstructTreeOnCompacting(newRoot)
+	fmt.Printf("new root (key: %v)\n", t.root.keyVal.key)
+	fmt.Println("new tree:")
+	fmt.Println(t)
 }
 
 func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) error {
@@ -1063,10 +1268,10 @@ func (n *AVLTNode[K, V]) String() string {
 
 //
 
-func (p *KeyVal[K, V]) PairKey() K {
+func (p *KeyVal[K, V]) Key() K {
 	return p.key
 }
-func (p *KeyVal[K, V]) PairValue() V {
+func (p *KeyVal[K, V]) Value() V {
 	return p.value
 }
 

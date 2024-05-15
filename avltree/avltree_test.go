@@ -2,39 +2,11 @@ package avltree
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 )
-
-type errorTest struct {
-	errText string
-}
-
-func (et *errorTest) Error() string {
-	if et == nil {
-		return "WAIT, THIS ERROR IS FRICKING NULL!"
-	}
-	return et.errText
-}
-func (et *errorTest) String() string {
-	if et == nil {
-		return "errorTest is nil"
-	}
-	return et.errText
-}
-func (et *errorTest) IsNil() bool {
-	return et == nil
-}
-func (et *errorTest) IsEmpty() bool {
-	return et == nil || et.errText == ""
-}
-
-func ne(s string) *errorTest {
-	e := new(errorTest)
-	(*e).errText = s
-	return e
-}
 
 type TestData struct {
 	Id   int
@@ -80,7 +52,6 @@ func NewMetadata(keyZeroValue int, valueZeroValue *TestData) AVLTreeConstructorP
 	avlTreeConstructorParams.Comparator = IntCompare
 	return avlTreeConstructorParams
 }
-
 func NewTestData() *TestData {
 	td := new(TestData)
 	td.Id = -42
@@ -93,11 +64,15 @@ func NewTestDataFilled(k int, v string) *TestData {
 	td.Text = v
 	return td
 }
-
-func NewTreeNodeFilled(tree *AVLTree[int, *TestData], key int, v string) *AVLTNode[int, *TestData] {
+func NewTestDataDefaultString(k int) *TestData {
+	return NewTestDataFilled(k, fmt.Sprintf("v_%d", k))
+}
+func NewTreeNodeFilled(tree *AVLTree[int, *TestData], key int) *AVLTNode[int, *TestData] {
+	return tree.newNode(key, NewTestDataDefaultString(key))
+}
+func NewTreeNodeFilledString(tree *AVLTree[int, *TestData], key int, v string) *AVLTNode[int, *TestData] {
 	return tree.newNode(key, NewTestDataFilled(key, v))
 }
-
 func NewTree() (*AVLTree[int, *TestData], error) {
 	//td := NewTestData()
 	avlTreeConstructorParams := NewMetadata(-1000, nil)
@@ -199,8 +174,8 @@ func TestRotateLeftLeft_3nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -296,8 +271,8 @@ func TestRotateRightRight_3nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -393,8 +368,8 @@ func TestRotateLeftRight_3nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -496,8 +471,8 @@ func TestRotateRightLeft_3nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -593,8 +568,8 @@ func TestRotateLeftLeft_5nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -714,8 +689,8 @@ func TestRotateRightRight_5nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -835,8 +810,8 @@ func TestRotateLeftRight_5nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -970,8 +945,8 @@ func TestRotateRightLeft_5nodes(t *testing.T) {
 	nodesTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	nodesDummyTree := []*AVLTNode[int, *TestData]{nil, nil, nil, nil, nil}
 	for i := 0; i < len(values); i++ {
-		nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
 		for i := 0; i < len(values); i++ {
@@ -1264,6 +1239,7 @@ func Test_AddOne_2WithSameKey_Replace(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func Test_AddOne_2WithSameKey_Ignore(t *testing.T) {
 
 	tree, err := NewTree()
@@ -1986,13 +1962,7 @@ func Test_Add_Massivo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := []int{
-		20, 10, 30, //
-		3, 5, //
-		50, 100, //
-		2, 1, //
-		42, 37, //
-	}
+	values := __VALUES_DEFAULT_len11
 	// at the end
 	//   .   .   .   .   .   . 20.
 	//   .   .   .   .   . / .   . \ .   .
@@ -2010,8 +1980,8 @@ func Test_Add_Massivo(t *testing.T) {
 
 	for i := 0; i < valuesInTotal; i++ {
 		alterationFns[i] = nil
-		// nodesTree[i] = NewTreeNodeFilled(tree, values[i], fmt.Sprintf("v_%d", values[i]))
-		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i], fmt.Sprintf("v_%d", values[i]))
+		// nodesTree[i] = NewTreeNodeFilled(tree, values[i])
+		nodesDummyTree[i] = NewTreeNodeFilled(dummyTree, values[i])
 	}
 	/*
 		for _, nt := range [][]*AVLTNode[int, *TestData]{nodesTree, nodesDummyTree} {
@@ -2549,7 +2519,7 @@ func Test_Add_Massivo(t *testing.T) {
 		}
 	}
 
-	indexNode++ // 10 TODO
+	indexNode++ // 10
 	alterationFns[indexNode] = func(t *testing.T, treeOriginal *AVLTree[int, *TestData], treeDummy *AVLTree[int, *TestData], index int, data *TestData) {
 		oldV, err := treeOriginal.Put(data.Id, data)
 		if err != nil {
@@ -2609,8 +2579,6 @@ func Test_Add_Massivo(t *testing.T) {
 		}
 	}
 
-	// TODO : do the remaining 10 test functions
-
 	//
 
 	var value *TestData
@@ -2620,6 +2588,176 @@ func Test_Add_Massivo(t *testing.T) {
 			(alterationFns[i])(t, tree, dummyTree, i, value)
 		}
 	}
+}
+
+//
+
+func Test_GetAt(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	values := []int{9, 4, 6, 42, 0, 18, 20, 35, 7, 13, 14}
+	amountSubTests := len(values)
+	sortedValues := make([]int, 0, amountSubTests) // slice
+	var newVal int
+
+	for i_val := -1; i_val < amountSubTests; i_val++ {
+		if i_val < 0 {
+			_, err := tree.GetAt(int64(i_val))
+			if err == nil {
+				t.Fatal("should have returned nil")
+			}
+		} else {
+			// TODO A
+			newVal = values[i_val]
+			tree.Put(newVal, NewTestDataFilled(newVal, ""))
+			sortedValues = append(sortedValues, newVal)
+			sort.Ints(sortedValues)
+
+			for i := 0; i < i_val; i++ {
+				fmt.Printf("getting at number index %d fetching for values at index %d; expected value: < %d >\n", i_val, i, sortedValues[i])
+				td, err := tree.GetAt(int64(i))
+				if err != nil {
+					t.Fatalf("unexpected error at number index %d fetching for values at index %d:\n%v\n", i_val, i, err)
+				}
+				if sortedValues[i] != td.key {
+					t.Fatalf("mismatch error at number index %d fetching for values at index %d:\n\t expected: %d ; got %d\n",
+						i_val, i, sortedValues[i], td.key)
+
+				}
+			}
+			fmt.Println("\n\n\n.")
+		}
+	}
+}
+
+//
+
+func Test_CompactBalance(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	max := 35
+	nodes := make([]*AVLTNode[int, *TestData], max)
+	for i := 0; i < max; i++ {
+		nodes[i] = NewTreeNodeFilled(tree, i)
+	}
+
+	var node *AVLTNode[int, *TestData]
+	for i := 0; i < max; i++ {
+		fmt.Printf("\n\n\n\n\n\nstarting test # %d\n", i)
+
+		for in := 0; in < i; in++ {
+			node = nodes[in]
+			tree.put(node)
+		}
+		fmt.Println("before CompactBalance")
+		fmt.Println(tree)
+		fmt.Println("CompactBalancing ...")
+		tree.CompactBalance()
+		fmt.Println(tree)
+
+		// clean at the end
+		fmt.Println("\nclean")
+		tree.cleanNil()
+		for in := 0; in < i; in++ {
+			node = nodes[in]
+			tree.cleanNode(node)
+		}
+
+		tree.Clear()
+	}
+}
+
+//
+// REMOVE
+//
+
+func Test_Remove_Empty(t *testing.T) {
+	tree, err := newTestTree(EMPTY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tdKeyNonPresent := (42) // NewTestDataDefaultString
+	value, erro := tree.Remove(tdKeyNonPresent)
+	if erro == nil {
+		t.Fatalf("error should not be null upon removing a node from an empty tree")
+	}
+	if value
+
+	// TODO FROM HERE
+}
+func Test_Remove_One(t *testing.T) {
+	tree, err := newTestTree(JUST_ROOT, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_One_Missing(t *testing.T) {
+	tree, err := newTestTree(JUST_ROOT, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Left_Root(t *testing.T) {
+	tree, err := newTestTree(LEFT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Left_Leaf(t *testing.T) {
+	tree, err := newTestTree(LEFT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Left_Missing(t *testing.T) {
+	tree, err := newTestTree(LEFT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Right_Root(t *testing.T) {
+	tree, err := newTestTree(RIGHT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Right_Leaf(t *testing.T) {
+	tree, err := newTestTree(RIGHT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Two_Right_Missing(t *testing.T) {
+	tree, err := newTestTree(RIGHT_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Three_Root(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Three_LeafLeft(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Three_LeafRight(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_Three_Missing(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
+}
+
+// TODO: casistiche: 8, per ora
+// - missing
+// - root
+// - sub-tree root
+// - leaf pre-root
+// - leaf next-root
+// - leaf pre-internal-root
+// - leaf next-internal-root
+// - min-value
+// - ... ?
+func Test_Remove_LeafOnFull_(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
+}
+func Test_Remove_LeafOnFull__Missing(t *testing.T) {
+	tree, err := newTestTree(FULL_2, 0)
+	// TODO FROM HERE
 }
 
 //
@@ -2731,7 +2869,7 @@ func DumpTreesForErrors[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], addi
 	DumpTreesForErrorsBuilder(t1, t2, additionalPreText, sb)
 	return sb.String()
 }
-func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *errorTest) {
+func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *ErrorAVLTree) {
 	if t1 == t2 {
 		return true, nil
 	}
@@ -2881,7 +3019,7 @@ func composeErrorOnCheckTree[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V],
 /*
 path true == left, false == right
 */
-func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int) (bool, *errorTest) {
+func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *AVLTNode[K, V], n2 *AVLTNode[K, V], pathRun []bool, depthCurrent int) (bool, *ErrorAVLTree) {
 
 	if n1 == nil && n2 == nil || (n1 == t1._NIL && n2 == t2._NIL) {
 		return true, nil
@@ -3034,4 +3172,198 @@ func linkNills[K any, V any](t *AVLTree[K, V], n *AVLTNode[K, V], shouldClearOrd
 	n.prevInOrder = t._NIL
 	n.nextInserted = t._NIL
 	n.prevInserted = t._NIL
+}
+
+// NEW TEST DATA
+
+type newTreeTest byte
+
+const (
+	EMPTY              newTreeTest = 0
+	JUST_ROOT          newTreeTest = 1
+	LEFT_2             newTreeTest = 2
+	RIGHT_2            newTreeTest = 3
+	FULL_2             newTreeTest = 4
+	FIBONACCI          newTreeTest = 5
+	LITTLE_5           newTreeTest = 6
+	FULL_7             newTreeTest = 7
+	LITTLE_11          newTreeTest = 8
+	MEDIUM_16          newTreeTest = 9
+	ALL_22_PRE_DEFINED newTreeTest = 10
+	CUSTOM_LENGTH      newTreeTest = 11
+)
+
+type arrayInt []int
+
+var __VALUES_DEFAULT_len11 = [...]int{
+	20, 10, 30, //
+	//   20
+	//10 . 30
+	3, 5, //
+	//   . 20.
+	//   /   .\
+	// 10.   .30
+	//   .3 -> rotation
+	//   5
+	// ->
+	//   . 20.
+	//   /   .\
+	//  5.   .30
+	//10 3
+	50, 100, //
+	//   . 20.
+	//   /   .\
+	//  5.   .50 -> left rotation
+	//10 3  30 100
+	2, 1, // -> left-right rotation
+	42, 37, // size: 11
+	// resulting tree up here
+	//   .   . 20.
+	//   .  /.   .  \
+	//   .5  .   .   . 50
+	// 2 .10 .   .  37  100
+	//1 3.   .   .30 42
+	26, //
+	//
+	//   .   . 20.
+	//   .  /.   .  \.
+	//   .5  .   .   . 37
+	// 2 .10 .   .  30  . 50.
+	//1 3.   .   .26 .  42 100
+	33, //
+	//
+	//   .   . 20.
+	//   .  /.   .  \.
+	//   .5  .   .   . 37
+	// 2 .10 .   .  30   . 50
+	//1 3.   .   .26 .33 42 100
+	666, 125, 99, // size 16
+	//   .   .   .   . 20.
+	//   .   .   /   .   .   . \ .
+	//   .   5   .   .   .   .   .  37
+	//   .2  . 10.   .   .   . 30.   .  100
+	//  1. 3 .   .   .   .   26  33  .50 . 125
+	//   .   .   .   .   .   .   .  42 99.   .666
+	//
+	124, 36, 31, 29, 22, 41, // size: 22
+	//   .   .   .   .   .   . 20.
+	//   .   .   .   .   . / .   . \ .
+	//   .   .   .   . / .   .   .   . \ .
+	//   .   .   .  /.   .   .   .   .   . \ .
+	//   .   .   5   .   .   .   .   .   .  37 -> rotation right-left
+	//   .   . / . \ .   .   .   .   .   ./  .  \.
+	//   .   2   .  10   .   .   .   .  30   .   . 100
+	//   .1  . 3 .   .   .   .   .   26  . 33.   50  .  125
+	//   .   .   .   .   .   .   . 22.29 .31 41_42 99. 124 666
+	//   .   .   .   .   .   .   .   .   .   .   .   .   .126
+	// ->
+	//   .   .   .   .   .   .   .   .   .   .   37
+	//   .   .   .   .   .   .   .   .   .   /   .   \
+	//   .   .   .   .   .   .   .   .  /.   .   .   .   .\
+	//   .   .   .   .   .   .   . / .   .   .   .   .   .   . \
+	//   .   .   .   .   .   . / .   .   .   .   .   .   .   .   . \
+	//   .   .   .   .   .20 .   .   .   .   .   .   .   .   .   .   . 100
+	//   .   .   .   . / .   . \ .   .   .   .   .   .   .   .   . / .   . \ .
+	//   .   .   .  /.   .   .   .\  .   .   .   .   .   .   .  /.   .   .   .\
+	//   .   .   5   .   .   .   .  30   .   .   .   .   .   50  .   .   .   .  125
+	//   .   . / . \ .   .   .   . / . \ .   .   .   .   . / . \ .   .   .   . / . \
+	//   .   2   .  10   .   .  26   .  33   .   .   .   42  .  99   .   .  124  . 666
+	//   .1  . 3 .   .   .   .22 .29 .31 .41 .
+}
+
+func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestData], error) {
+	tree, err := NewTree()
+	if err != nil {
+		return nil, err
+	}
+
+	drawsFromDefault := false
+	defaultValueAmount := 0
+	switch treeType {
+	case EMPTY:
+		return tree, nil
+	case JUST_ROOT:
+		value := 42
+		tree.Put(value, NewTestDataDefaultString(value))
+	case LEFT_2:
+		value := 1
+		tree.Put(value, NewTestDataDefaultString(value))
+		value = 0
+		tree.Put(value, NewTestDataDefaultString(value))
+	case RIGHT_2:
+		value := 0
+		tree.Put(value, NewTestDataDefaultString(value))
+		value = 1
+		tree.Put(value, NewTestDataDefaultString(value))
+	case FULL_2:
+		value := 1
+		tree.Put(value, NewTestDataDefaultString(value))
+		value = 0
+		tree.Put(value, NewTestDataDefaultString(value))
+		value = 2
+		tree.Put(value, NewTestDataDefaultString(value))
+	case LITTLE_5:
+		drawsFromDefault = true
+		defaultValueAmount = 5
+	case FULL_7:
+		drawsFromDefault = true
+		defaultValueAmount = 7
+	case LITTLE_11:
+		drawsFromDefault = true
+		defaultValueAmount = 11
+	case MEDIUM_16:
+		drawsFromDefault = true
+		defaultValueAmount = 16
+	case ALL_22_PRE_DEFINED:
+		drawsFromDefault = true
+		defaultValueAmount = 22
+	case CUSTOM_LENGTH:
+		drawsFromDefault = true
+		defaultValueAmount = optionalLength
+
+	case FIBONACCI:
+		l := optionalLength
+		isAscending := true
+		var value int
+		if optionalLength < 0 {
+			l = -optionalLength
+			isAscending = false
+		}
+		for i := 0; i < l; i++ {
+			if isAscending {
+				value = i
+			} else {
+				value = l - (i + 1)
+			}
+			tree.Put(value, NewTestDataDefaultString(value))
+		}
+	default:
+		return nil, fmt.Errorf("new tree test type not implemented: %d", treeType)
+	}
+
+	if drawsFromDefault {
+		if defaultValueAmount < 0 {
+			return nil, fmt.Errorf("the provided amount of nodes is negative: %d", defaultValueAmount)
+		}
+
+		var value int
+		size := defaultValueAmount
+		defaultAmount := len(__VALUES_DEFAULT_len11)
+		if size > defaultAmount {
+			size = defaultAmount
+			defaultValueAmount -= size
+		}
+		for i := 0; i < size; i++ {
+			value = __VALUES_DEFAULT_len11[i]
+			tree.Put(value, NewTestDataDefaultString(value))
+		}
+		if defaultValueAmount > 0 {
+			for i := 0; i < defaultValueAmount; i++ {
+				value = i + 1000
+				tree.Put(value, NewTestDataDefaultString(value))
+			}
+		}
+	}
+
+	return tree, nil
 }
