@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const DEPTH_INITIAL int64 = -1
+const DEPTH_NIL int64 = -1
 const INTEGER_MAX_VALUE int64 = 9223372036854775807
 
 type ForEachMode byte
@@ -138,7 +138,7 @@ func (t *AVLTree[K, V]) cleanNode(n *AVLTNode[K, V]) {
 
 func (t *AVLTree[K, V]) cleanNil() {
 	t.cleanNode(t._NIL)
-	t._NIL.height = DEPTH_INITIAL
+	t._NIL.height = DEPTH_NIL
 }
 
 func (t *AVLTree[K, V]) getNode(k K) *AVLTNode[K, V] {
@@ -841,7 +841,7 @@ func (t *AVLTree[K, V]) recalculateHeight(n *AVLTNode[K, V], recurseToRoot bool)
 	var h int64
 	shouldContinue := true
 	for shouldContinue {
-		h = DEPTH_INITIAL
+		h = DEPTH_NIL
 		if n.left != t._NIL {
 			h = n.left.height
 		}
@@ -1187,11 +1187,11 @@ func (t *AVLTree[K, V]) Put(key K, value V) (V, error) {
 
 func (t *AVLTree[K, V]) Remove(k K) (V, error) {
 	if t.root == t._NIL {
-		return t.avlTreeConstructorParams.ValueZeroValue, nil
+		return t.avlTreeConstructorParams.ValueZeroValue, EMPTY_TREE()
 	}
 	n := t.getNode(k)
 	if n == t._NIL {
-		return t.avlTreeConstructorParams.ValueZeroValue, fmt.Errorf("key not found")
+		return t.avlTreeConstructorParams.ValueZeroValue, KEY_NOT_FOUND()
 	}
 	return t.remove(n)
 }

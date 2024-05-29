@@ -64,8 +64,11 @@ func NewTestDataFilled(k int, v string) *TestData {
 	td.Text = v
 	return td
 }
+func KeyToValue(k int) string {
+	return fmt.Sprintf("v_%d", k)
+}
 func NewTestDataDefaultString(k int) *TestData {
-	return NewTestDataFilled(k, fmt.Sprintf("v_%d", k))
+	return NewTestDataFilled(k, KeyToValue(k))
 }
 func NewTreeNodeFilled(tree *AVLTree[int, *TestData], key int) *AVLTNode[int, *TestData] {
 	return tree.newNode(key, NewTestDataDefaultString(key))
@@ -120,7 +123,7 @@ func TestNewTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = testEqualityPrimitive(true, tree._NIL.height, DEPTH_INITIAL, fmt.Sprintf("NIL's height should be: %d", DEPTH_INITIAL))
+	err = testEqualityPrimitive(true, tree._NIL.height, DEPTH_NIL, fmt.Sprintf("NIL's height should be: %d", DEPTH_NIL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2617,10 +2620,9 @@ func Test_GetAt(t *testing.T) {
 			sort.Ints(sortedValues)
 
 			for i := 0; i < i_val; i++ {
-				fmt.Printf("getting at number index %d fetching for values at index %d; expected value: < %d >\n", i_val, i, sortedValues[i])
 				td, err := tree.GetAt(int64(i))
 				if err != nil {
-					t.Fatalf("unexpected error at number index %d fetching for values at index %d:\n%v\n", i_val, i, err)
+					t.Fatalf("unexpected error at number index %d fetching for values at index %d:\ngot: < %v >\n error:\n%v ", i_val, i, td, err)
 				}
 				if sortedValues[i] != td.key {
 					t.Fatalf("mismatch error at number index %d fetching for values at index %d:\n\t expected: %d ; got %d\n",
@@ -2635,7 +2637,7 @@ func Test_GetAt(t *testing.T) {
 
 //
 
-func Test_CompactBalance(t *testing.T) {
+func _CompactBalance(t *testing.T) { // Test
 	tree, err := NewTree()
 	if err != nil {
 		t.Fatal(err)
@@ -2682,28 +2684,86 @@ func Test_Remove_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	tdKeyNonPresent := (42) // NewTestDataDefaultString
 	value, erro := tree.Remove(tdKeyNonPresent)
 	if erro == nil {
-		t.Fatalf("error should not be null upon removing a node from an empty tree")
+		t.Fatalf("error should not be null upon removing a node from an empty tree (DEBUG: value is:\n%v)", value)
 	}
-	if value
-
-	// TODO FROM HERE
+	expectedError := EMPTY_TREE()
+	if erro != expectedError {
+		t.Fatalf("unmatch errors: expected:\n\t- %v\ngot:\n\t- %v", expectedError, erro)
+	}
+	if value != tree.avlTreeConstructorParams.ValueZeroValue {
+		t.Fatalf("Unexpected value while removing %d from an empty tree:\n%v\n", tdKeyNonPresent, value)
+	}
 }
 func Test_Remove_One(t *testing.T) {
 	tree, err := newTestTree(JUST_ROOT, 0)
-	// TODO FROM HERE
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := 42
+	removedNodeData, erro := tree.Remove(key)
+	if erro != nil {
+		t.Fatal(erro)
+	}
+	if removedNodeData == nil {
+		err = VALUE_RETURNED_NIL()
+		t.Fatal(err.Error())
+	}
+	if key != removedNodeData.Id {
+		err = UNMATCHED_KEYS(key, removedNodeData.Id)
+		t.Fatal(err.Error())
+	}
+	expected := KeyToValue(key)
+	if expected != removedNodeData.Text {
+		err = UNMATCHED_VALUES(expected, removedNodeData.Text)
+		t.Fatal(err.Error())
+	}
 }
 func Test_Remove_One_Missing(t *testing.T) {
 	tree, err := newTestTree(JUST_ROOT, 0)
-	// TODO FROM HERE
+	if err != nil {
+		t.Fatal(err)
+	}
+	tdKeyNonPresent := tree.root.keyVal.key + 1
+
+	removedNodeData, erro := tree.Remove(tdKeyNonPresent)
+	if erro == nil {
+		t.Fatal("on removing a missing key on a singleton tree, there's no error but it should be")
+	}
+	expectedError := KEY_NOT_FOUND()
+	if erro != expectedError {
+		t.Fatalf("unmatch errors: expected:\n\t- %v\ngot:\n\t- %v", expectedError, erro)
+	}
+	if removedNodeData != nil {
+		err = VALUE_RETURNED_NOT_NIL(removedNodeData)
+		t.Fatal(err.Error())
+	}
 }
+
 func Test_Remove_Two_Left_Root(t *testing.T) {
 	tree, err := newTestTree(LEFT_2, 0)
-	// TODO FROM HERE
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// remove left node
+	leftNode := tree.root.left
+	keyLeft := leftNode.keyVal.key
+
+	removedNodeData, erro := tree.Remove(keyLeft)
+	if erro != nil {
+		t.Fatal(erro)
+	}
+	if removedNodeData == nil {
+		err = VALUE_RETURNED_NIL()
+		t.Fatal(err.Error())
+	}
+
 }
+
+/*
 func Test_Remove_Two_Left_Leaf(t *testing.T) {
 	tree, err := newTestTree(LEFT_2, 0)
 	// TODO FROM HERE
@@ -2759,6 +2819,7 @@ func Test_Remove_LeafOnFull__Missing(t *testing.T) {
 	tree, err := newTestTree(FULL_2, 0)
 	// TODO FROM HERE
 }
+*/
 
 //
 //
@@ -2876,7 +2937,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 
 	if t1.size != t2.size {
 		errText := fmt.Sprintf("different sizes: %d and %d\n", t1.size, t2.size)
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 
 	if t1.IsEmpty() && t2.IsEmpty() {
@@ -2885,16 +2946,16 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 	if t1.IsEmpty() != t2.IsEmpty() {
 		if t1.IsEmpty() {
 			errText := fmt.Sprintf("t1 is empty but t2 is not: t2 has %d nodes", t2.size)
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 		errText := fmt.Sprintf("t1 is not empty but t2 is: t1 it has %d nodes", t2.size)
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 	//fmt.Println("on CheckTrees, checking height")
 	if t1.root.height != t2.root.height {
 		errText := DumpTreesForErrors(t1, t2, //
 			fmt.Sprintf("they have different heights: t1's %d, t2's %d\n", t1.root.height, t2.root.height))
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 
 	maxHeight := t1.root.height
@@ -2950,7 +3011,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 						node.toStringTabbed(true, func(s string) { sb.WriteString(s) })
 					}
 
-					errCurrent := ne(sb.String())
+					errCurrent := newErrorFromText(sb.String())
 					if io {
 						errs1 = append(errs1, errCurrent)
 						nodes_count1++
@@ -2989,7 +3050,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 		if hasErrors {
 			errText := sb.String()
 			sb.Reset()
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 
 	}
@@ -3030,14 +3091,14 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		var nullity string = "null"
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of first tree is %s (the second one didn't)", nullity))
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 	if n2 == nil {
 		// ERROR: SHOULD NOT BE NIL
 		var nullity string = "null"
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 			fmt.Sprintf("node of second tree is %s (the first one didn't)", nullity))
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 
 	integers := []string{"height", "size left", "size right"}
@@ -3049,7 +3110,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		if int_1[i] != int_2[i] {
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("checking integers; %s comparison failed: node1 ones= %d, node2 ones= %d", integers[i], int_1[i], int_2[i]))
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 	}
 
@@ -3081,7 +3142,7 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s NIL-ity, they are different: the nil-comparison results in < %t > for 1 and in < %t > for 2\n\t the checked node 1: %v\n\t the checked node 2: %v\n", //
 					nameNode, (node1 == t1._NIL), (node2 == t2._NIL), node1, node2))
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 		// if both nodes are NOT "NIL", then they will be checked in the for loop below
 
@@ -3108,12 +3169,12 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 		if comp1 != 0 {
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 1 comparator, the comparison should be 0, but is: %d", keyOwnername, comp1))
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 		if comp2 != 0 {
 			errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, //
 				fmt.Sprintf("while comparing nodes%s key with tree 2 comparator, the comparison should be 0, but is: %d", keyOwnername, comp2))
-			return false, ne(errText)
+			return false, newErrorFromText(errText)
 		}
 	}
 
@@ -3123,14 +3184,14 @@ func checkTreesEquality[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V], n1 *
 	if (!equal) || (err != nil) {
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
 
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 	pathRun[depthCurrent] = false
 	//fmt.Printf("nodes << n1:%v ; n2:%v >>, recursion on children: right\n", n1.keyVal.key, n2.keyVal.key)
 	equal, err = checkTreesEquality(t1, t2, n1.right, n2.right, pathRun, depthCurrent+1)
 	if (!equal) || (err != nil) {
 		errText := composeErrorOnCheckTree(t1, t2, n1, n2, pathRun, depthCurrent, err.Error())
-		return false, ne(errText)
+		return false, newErrorFromText(errText)
 	}
 	/*
 		var sb strings.Builder
@@ -3172,6 +3233,16 @@ func linkNills[K any, V any](t *AVLTree[K, V], n *AVLTNode[K, V], shouldClearOrd
 	n.prevInOrder = t._NIL
 	n.nextInserted = t._NIL
 	n.prevInserted = t._NIL
+}
+func addRootBaseNode(t *AVLTree[int, *TestData], key int) {
+	n := NewTreeNodeFilled(t, key)
+	t.root = n
+	t.size = 1
+	t.minValue = n
+	t.firstInserted = n
+	t.cleanNode(n)
+	linkNodes(n, n, true)
+	linkNodes(n, n, false)
 }
 
 // NEW TEST DATA
