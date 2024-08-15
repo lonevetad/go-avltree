@@ -71,7 +71,8 @@ func NewTestDataDefaultString(k int) *TestData {
 	return NewTestDataFilled(k, KeyToValue(k))
 }
 func NewTreeNodeFilled(tree *AVLTree[int, *TestData], key int) *AVLTNode[int, *TestData] {
-	return tree.newNode(key, NewTestDataDefaultString(key))
+	// return tree.newNode(key, NewTestDataDefaultString(key))
+	return NewTreeNodeFilledString(tree, key, KeyToValue(key))
 }
 func NewTreeNodeFilledString(tree *AVLTree[int, *TestData], key int, v string) *AVLTNode[int, *TestData] {
 	return tree.newNode(key, NewTestDataFilled(key, v))
@@ -1965,7 +1966,7 @@ func Test_Add_Massivo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := __VALUES_DEFAULT_len11
+	values := __VALUES_DEFAULT_len22
 	// at the end
 	//   .   .   .   .   .   . 20.
 	//   .   .   .   .   . / .   . \ .   .
@@ -3266,7 +3267,7 @@ const (
 
 type arrayInt []int
 
-var __VALUES_DEFAULT_len11 = [...]int{
+var __VALUES_DEFAULT_len22 = [...]int{
 	20, 10, 30, //
 	//   20
 	//10 . 30
@@ -3274,25 +3275,27 @@ var __VALUES_DEFAULT_len11 = [...]int{
 	//   . 20.
 	//   /   .\
 	// 10.   .30
-	//   .3 -> rotation
-	//   5
+	//3  . -> rotation
+	//  5
 	// ->
 	//   . 20.
 	//   /   .\
 	//  5.   .30
-	//10 3
+	//3  10
 	50, 100, //
-	//   . 20.
-	//   /   .\
-	//  5.   .50 -> left rotation
-	//10 3  30 100
-	2, 1, // -> left-right rotation
+	//   .   .  20
+	//   .   ./  .  \.
+	//   .  /.   .   .\
+	//   .5  .   .   . 50.
+	//  /.  \.   .   ./  .\
+	// 3 .   10  . 30.   . 100
+	2, 1, // -> right rotation
 	42, 37, // size: 11
 	// resulting tree up here
 	//   .   . 20.
 	//   .  /.   .  \
 	//   .5  .   .   . 50
-	// 2 .10 .   .  37  100
+	// 2 . 10.   .  37  100
 	//1 3.   .   .30 42
 	26, //
 	//
@@ -3412,29 +3415,250 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		return nil, fmt.Errorf("new tree test type not implemented: %d", treeType)
 	}
 
-	if drawsFromDefault {
-		if defaultValueAmount < 0 {
-			return nil, fmt.Errorf("the provided amount of nodes is negative: %d", defaultValueAmount)
-		}
+	if !drawsFromDefault {
+		return tree, nil // cleaner to just return this way rather than a HUGE "if"
+	}
+	if defaultValueAmount < 0 {
+		return nil, fmt.Errorf("the provided amount of nodes is negative: %d", defaultValueAmount)
+	}
+	if defaultValueAmount == 0 {
+		return newTestTree(EMPTY, 0)
+	}
 
-		var value int
-		size := defaultValueAmount
-		defaultAmount := len(__VALUES_DEFAULT_len11)
-		if size > defaultAmount {
-			size = defaultAmount
-			defaultValueAmount -= size
-		}
+	var value int
+	size := defaultValueAmount
+	maxAmountAutomaticNodes := len(__VALUES_DEFAULT_len22)
+	if size > maxAmountAutomaticNodes {
+		size = maxAmountAutomaticNodes
+		defaultValueAmount -= size
+	}
+	/*
 		for i := 0; i < size; i++ {
-			value = __VALUES_DEFAULT_len11[i]
+			value = __VALUES_DEFAULT_len22[i]
 			tree.Put(value, NewTestDataDefaultString(value))
-		}
-		if defaultValueAmount > 0 {
-			for i := 0; i < defaultValueAmount; i++ {
-				value = i + 1000
-				tree.Put(value, NewTestDataDefaultString(value))
+		}*/
+	n := NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[0]) // 20
+	tree.root = n
+	tree.firstInserted = n
+	if size == 1 {
+		return tree, nil
+	}
+	n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[1]) // 10
+	// basic
+	tree.root.left = n
+	n.father = tree.root
+	tree.minValue = n
+	// key order
+	n.prevInOrder = tree.root
+	tree.root.nextInOrder = n
+	n.nextInOrder = tree.root
+	tree.root.prevInOrder = n
+	// chronological order
+	n.prevInserted = tree.root
+	tree.root.nextInserted = n
+	if size == 2 {
+		return tree, nil
+	}
+	n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[2]) // 30
+	tree.root.right = n
+	n.father = tree.root
+	// key order
+	n.nextInOrder = tree.minValue
+	n.prevInOrder = tree.root
+	tree.root.nextInOrder = n
+	tree.minValue.prevInOrder = n
+	// chronological order
+	lastInserted := tree.root.left
+	n.nextInserted = tree.root
+	n.prevInserted = lastInserted
+	// other data
+	tree.root.height = 1
+	tree.root.sizeLeft = 1
+	tree.root.sizeRight = 1
+	tree.size = 3
+	if size == 3 {
+		return tree, nil
+	}
+
+	lastInserted = n
+	maxValue := tree.root.right // 30
+	if size >= 4 {
+		// TODO: size 4
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[3]) // 3
+		pivot := tree.root.left                                // == 10
+		n.father = pivot
+		pivot.left = n
+		pivot.sizeLeft = 1
+		pivot.height = 1
+		tree.root.height++
+		tree.root.sizeLeft++
+		tree.size++
+		// key order
+		n.nextInOrder = tree.minValue // 10
+		n.prevInOrder = maxValue      // 30
+		maxValue.nextInOrder = n
+		tree.minValue.prevInOrder = n
+		// update min value
+		tree.minValue = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+		if size >= 5 {
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[4]) // 5
+			// situation after the plain insertion BUT before balance:
+			// left-right rotation (over "3", then "10"), resulting in "5"
+			// as the new "sub-root"
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .10 .   .   . 30.
+			//  /
+			// 3
+			// [5]. -> this will be lifted
+			// then
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 30.
+			//  /.  \.
+			// 3 .   10
+			tree.size = 5
+			tree.root.height = 2
+			tree.root.sizeLeft = 3
+			subroot := tree.root.left // 10
+			if subroot.keyVal.key != 10 {
+				return nil, fmt.Errorf(
+					"on building tree of size 5, expecting the root's left's key to be 10, but it's __%d__\n",
+					subroot.keyVal.key)
 			}
+			tree.root.left = n
+			n.father = subroot
+			n.sizeLeft = 1
+			n.sizeRight = 1
+			n.height = 1
+			n.left = tree.minValue
+			tree.minValue.father = n
+			tree.minValue.right = tree._NIL
+			n.right = subroot
+			subroot.father = n
+			subroot.height = 0
+			subroot.sizeLeft = 0
+
+			// key order
+			n.nextInOrder = subroot // 10
+			subroot.prevInOrder = n
+			n.prevInOrder = tree.minValue // 3
+			tree.minValue.nextInOrder = n
+			// chronological order
+			lastInserted = __appendLastInserted(n, tree, lastInserted)
+		} else { // all filled, size exactly == 4
+			return tree, nil
+		}
+	} else { // all filled, size exactly == 3
+		return tree, nil
+	}
+
+	// lastInserted = __appendLastInserted(n, tree, lastInserted)
+	if size >= 6 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[5]) // 50
+		//   .   .  20
+		//   .   ./  .  \.
+		//   .  /.   .   .\
+		//   .5  .   .   . 30.
+		//  /.  \.   .   .   .\
+		// 3 .   10  .   .   .[50]
+		tree.size++
+		tree.root.sizeLeft++
+		pivot := tree.root.right
+		pivot.height = 1
+		pivot.sizeRight = 1
+		pivot.right = n
+		n.father = pivot
+		// key order
+		n.nextInOrder = tree.minValue // 3
+		n.prevInOrder = pivot
+		maxValue = n
+		tree.minValue.prevInOrder = n
+		pivot.nextInOrder = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+		if size >= 7 {
+
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[6]) // 100
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 30. -> left rotation
+			//  /.  \.   .   .   \
+			// 3 .   10  .   .   .50
+			//   .   .   .   .   . [100]
+			// ->
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 50.
+			//  /.  \.   .   ./  .\
+			// 3 .   10  . 30.   .[100]
+			tree.root.sizeRight++
+			tree.size++
+			pivot = tree.root.right // 30
+			pivot.height = 0
+			pivot.sizeRight = 0
+			pivot.right = tree._NIL
+			pivot.father = lastInserted // 50
+			lastInserted.left = pivot
+			tree.root.right = lastInserted
+			lastInserted.father = tree.root
+			n.father = lastInserted
+			lastInserted.right = n
+			lastInserted.height = 1
+			lastInserted.sizeLeft = 1
+			lastInserted.sizeRight = 1
+			// key order
+			n.nextInOrder = tree.minValue // 3
+			n.prevInOrder = lastInserted
+			maxValue = n
+			tree.minValue.prevInOrder = n
+			lastInserted.nextInOrder = n
+
+			lastInserted = __appendLastInserted(n, tree, lastInserted)
+		} else { // all filled, size exactly == 6
+			return tree, nil
+		}
+	} else { // all filled, size exactly == 5
+		return tree, nil
+	}
+
+	//   .   .  20
+	//   .   ./  .  \.
+	//   .  /.   .   .\
+	//   .5  .   .   . 50.
+	//  /.  \.   .   ./  .\
+	// 3 .   10  . 30.   . 100
+
+	/*TODO sizes:
+	- 8 9
+	- 10 11
+	- 12
+	- 13 (it's very simple)
+	- 14 15 16
+	- under 22
+	- over 22 -> just the loop below
+	*/
+
+	if defaultValueAmount > 0 {
+		for i := 0; i < defaultValueAmount; i++ {
+			value = i + 1000
+			tree.Put(value, NewTestDataDefaultString(value))
 		}
 	}
 
 	return tree, nil
+}
+
+func __appendLastInserted(n *AVLTNode[int, *TestData], tree *AVLTree[int, *TestData], lastInserted *AVLTNode[int, *TestData]) *AVLTNode[int, *TestData] {
+	lastInserted.nextInserted = n
+	tree.firstInserted.prevInserted = n
+	n.nextInserted = tree.firstInserted
+	n.prevInserted = lastInserted
+	return n // new last inserted
 }
