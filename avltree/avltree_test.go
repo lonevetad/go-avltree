@@ -2,6 +2,7 @@ package avltree
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ type TestData struct {
 	Id   int
 	Text string
 }
+type ForEachAction[K any, V any] func(node *AVLTNode[K, V], index int) error
 
 func Extract(t *TestData) int {
 	if t == nil {
@@ -2585,11 +2587,24 @@ func Test_Add_Massivo(t *testing.T) {
 
 	//
 
+	keys := make([]int, 0.0)
 	var value *TestData
 	for i := 0; i < valuesInTotal; i++ {
 		value = NewTestDataFilled(values[i], fmt.Sprintf("v_%d", i))
 		if alterationFns[i] != nil {
 			(alterationFns[i])(t, tree, dummyTree, i, value)
+		}
+		keys = append(keys, i)
+		if i >= 3 {
+			errors := testTreeNodesMetadatas(tree, &keys)
+			if len(errors) > 0 {
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("errors at index #%d :", i))
+				for _, e := range errors {
+					sb.WriteString(fmt.Sprintf("\n\t- %v", e.Error()))
+				}
+				t.Fatal(sb.String())
+			}
 		}
 	}
 }
@@ -2986,11 +3001,11 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 		nodes_count1 := 0
 		nodes_count2 := 0
 
-		accumulator := func(currentTree *AVLTree[K, V], isOne bool, forEachM ForEachMode) func(node *AVLTNode[K, V]) {
+		accumulator := func(currentTree *AVLTree[K, V], isOne bool, forEachM ForEachMode) ForEachAction[K, V] {
 			io := isOne
 			ct := currentTree
 			fem := forEachM
-			return func(node *AVLTNode[K, V]) {
+			return func(node *AVLTNode[K, V], index int) error {
 				isDangling := (ct.size > 1) && (node.father == ct._NIL) && (node.left == ct._NIL) && (node.right == ct._NIL)
 
 				if isDangling {
@@ -3021,6 +3036,7 @@ func CheckTrees[K any, V any](t1 *AVLTree[K, V], t2 *AVLTree[K, V]) (bool, *Erro
 						nodes_count2++
 					}
 				}
+				return nil
 			}
 		}
 		t1.forEachNode(fe, accumulator(t1, true, fe))
@@ -3265,9 +3281,7 @@ const (
 	CUSTOM_LENGTH      newTreeTest = 11
 )
 
-type arrayInt []int
-
-var __VALUES_DEFAULT_len22 = [...]int{
+var __VALUES_DEFAULT_len22 = []int{
 	20, 10, 30, //
 	//   20
 	//10 . 30
@@ -3343,6 +3357,283 @@ var __VALUES_DEFAULT_len22 = [...]int{
 	//   .   . / . \ .   .   .   . / . \ .   .   .   .   . / . \ .   .   .   . / . \
 	//   .   2   .  10   .   .  26   .  33   .   .   .   42  .  99   .   .  124  . 666
 	//   .1  . 3 .   .   .   .22 .29 .31 .41 .
+}
+
+type CheckOrderHelpers struct {
+	ascendingOrder bool
+	tree           *AVLTree[int, *TestData]
+	prevNode       *AVLTNode[int, *TestData]
+	keysToCheck    (*[]int)
+}
+
+func (coh *CheckOrderHelpers) reset() {
+	coh.prevNode = nil
+}
+func (coh *CheckOrderHelpers) chronologicalCheck(currNode *AVLTNode[int, *TestData], index int) error {
+	if (index < len(*coh.keysToCheck)) && ((*(coh.keysToCheck))[index] != currNode.keyVal.key) {
+		return fmt.Errorf("\nERROR: at index %d, key is expected to be %d but it's: %d.", index, (*(coh.keysToCheck))[index], currNode.keyVal.key)
+	}
+	return nil
+}
+func (coh *CheckOrderHelpers) sortedCheck(currNode *AVLTNode[int, *TestData], index int) error {
+	if (coh.ascendingOrder && (index == 0)) || //
+		((!coh.ascendingOrder) && (index == (int(coh.tree.Size()) - 1))) { // i.e., this is the first node of the senquence
+		coh.prevNode = currNode
+		return nil
+	}
+	compareResult := IntCompare(coh.prevNode.keyVal.key, currNode.keyVal.key)
+	if compareResult == 0 {
+		return nil // same key -> all ok
+	}
+	if (compareResult < 0) == coh.ascendingOrder {
+		return nil
+	}
+	ascendingOrderString := "descending"
+	greaterOrLowerString := "greater"
+	if coh.ascendingOrder {
+		ascendingOrderString = "ascending"
+		greaterOrLowerString = "lower"
+	}
+	return fmt.Errorf("ERROR: at index %d, with %s order, the value of the previous node (key= %d) is not %s than the current one (key= %d)\n",
+		index, ascendingOrderString, coh.prevNode.keyVal.key, greaterOrLowerString, currNode.keyVal.key)
+}
+
+func newCheckOrderHelpers_WithTree(tree *AVLTree[int, *TestData], ascending bool, keys *[]int) *CheckOrderHelpers {
+	if keys == nil {
+		keys = &__VALUES_DEFAULT_len22
+	}
+	coh := new(CheckOrderHelpers)
+	coh.tree = tree
+	coh.keysToCheck = keys
+	coh.ascendingOrder = ascending
+	return coh
+}
+func newCheckOrderHelpers(ascending bool, keys *[]int) *CheckOrderHelpers {
+	return newCheckOrderHelpers_WithTree(nil, ascending, keys)
+}
+
+/*
+*
+Returns: the total size of the node (included the current one), a possible error and this current node's height
+*/
+func __checkTreeNodesSizeCaches(tree *AVLTree[int, *TestData], node *AVLTNode[int, *TestData], depth int) (int64, error, int64) {
+	if node == nil {
+		return -1, fmt.Errorf("node is nil ad depth: %d.", depth), -1
+	}
+	if node == tree._NIL {
+		return 0, nil, -1
+	}
+	var err error = nil
+	var expectedSizeRight int64
+	var expectedSizeLeft int64
+	var expectedHeight int64
+	var hleft int64
+	var hright int64
+
+	expectedSizeLeft, err, hleft = __checkTreeNodesSizeCaches(tree, node.left, depth+1)
+	if err != nil {
+		return -3, fmt.Errorf("error on __checkTreeNodesSizeCaches , left recursion from current node <<%d>>: %s", node.keyVal.key, err.Error()), -1
+	}
+	if expectedSizeLeft != node.sizeLeft {
+		return -4, fmt.Errorf("at depth %d, on node with key=%d, mismatch between size left: expected %d, node's %d", depth, node.keyVal.key, expectedSizeLeft, node.sizeLeft), -1
+	}
+	expectedSizeRight, err, hright = __checkTreeNodesSizeCaches(tree, node.right, depth+1)
+	if err != nil {
+		return -5, fmt.Errorf("error on __checkTreeNodesSizeCaches , right recursion from current node <<%d>>: %s", node.keyVal.key, err.Error()), -1
+	}
+	if expectedSizeRight != node.sizeRight {
+		return -6, fmt.Errorf("at depth %d, on node with key=%d, mismatch between size right: expected %d, node's %d", depth, node.keyVal.key, expectedSizeRight, node.sizeRight), -1
+	}
+	if hleft > hright {
+		expectedHeight = hleft
+	} else {
+		expectedHeight = hright
+	}
+	expectedHeight++ // count the current node
+	if node.height != int64(expectedHeight) {
+		return -2, fmt.Errorf("node(key=%d)'s height (%d) does not match the expected (%d)", node.keyVal.key, node.height, expectedHeight), -1
+	}
+	return 1 + expectedSizeLeft + expectedSizeRight, nil, expectedHeight
+}
+func checkTreeAndNodesSizeCaches(tree *AVLTree[int, *TestData]) []error {
+	errors := make([]error, 0, 2)
+	sizeTotal, err, expectedHeight := __checkTreeNodesSizeCaches(tree, tree.root, 0)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("on checkTreeAndNodesSizeCaches, check failed with error number %d,  and error text:\n\t%s\n", sizeTotal, err.Error()))
+	}
+	if sizeTotal >= 0 && sizeTotal != tree.size {
+		errors = append(errors, fmt.Errorf("on checkTreeAndNodesSizeCaches, size mismatch failed: expected %d, got %d\n", sizeTotal, tree.size))
+	}
+	if expectedHeight != tree.root.height {
+		errors = append(errors, fmt.Errorf("root's height (%d) does not match the expected one: %d", tree.root.height, expectedHeight))
+	}
+	return errors
+}
+
+func __checkInfraNodesLinks(tree *AVLTree[int, *TestData], coh *CheckOrderHelpers) []error {
+	var err error
+	errors := make([]error, 0, 4)
+	coh.reset()
+	coh.tree = tree
+	// check for links
+	err = tree.forEachNode(Queue, coh.chronologicalCheck)
+	if err != nil {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("ERROR while doing checks at size %d for node's linkage through forEach of type: Queue\n", tree.size))
+		sb.WriteString(err.Error())
+		sb.WriteString("\nPrint nodes in sequence as debug:\n")
+		tree.forEachNode(Queue, func(node *AVLTNode[int, *TestData], index int) error {
+			sb.WriteString(fmt.Sprintf("-) %d\t: ", index))
+			sb.WriteString(node.String())
+			sb.WriteString("\n")
+			return nil
+		})
+		errors = append(errors, fmt.Errorf(sb.String()))
+	}
+	err = tree.forEachNode(Stack, coh.chronologicalCheck)
+	if err != nil {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("ERROR while doing checks at size %d for node's linkage through forEach of type: Stack\n", tree.size))
+		sb.WriteString(err.Error())
+		sb.WriteString("\nPrint nodes in sequence as debug:\n")
+		tree.forEachNode(Stack, func(node *AVLTNode[int, *TestData], index int) error {
+			sb.WriteString(fmt.Sprintf("-) %d\t: ", index))
+			sb.WriteString(node.String())
+			sb.WriteString("\n")
+			return nil
+		})
+		errors = append(errors, fmt.Errorf(sb.String()))
+	}
+
+	coh.ascendingOrder = true
+	err = tree.forEachNode(InOrder, coh.sortedCheck)
+	if err != nil {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("ERROR while doing checks at size %d for node's linkage through forEach of type: InOrder\n", tree.size))
+		sb.WriteString(err.Error())
+		sb.WriteString("\nPrint nodes in sequence as debug:\n")
+		tree.forEachNode(InOrder, func(node *AVLTNode[int, *TestData], index int) error {
+			sb.WriteString(fmt.Sprintf("-) %d\t: ", index))
+			sb.WriteString(node.String())
+			sb.WriteString("\n")
+			return nil
+		})
+		errors = append(errors, fmt.Errorf(sb.String()))
+	}
+	coh.ascendingOrder = false
+	err = tree.forEachNode(ReverseInOrder, coh.sortedCheck)
+	if err != nil {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("ERROR while doing checks at size %d for node's linkage through forEach of type: ReverseInOrder\n", tree.size))
+		sb.WriteString(err.Error())
+		sb.WriteString("\nPrint nodes in sequence as debug:\n")
+		tree.forEachNode(ReverseInOrder, func(node *AVLTNode[int, *TestData], index int) error {
+			sb.WriteString(fmt.Sprintf("-) %d\t: ", index))
+			sb.WriteString(node.String())
+			sb.WriteString("\n")
+			return nil
+		})
+		errors = append(errors, fmt.Errorf(sb.String()))
+	}
+	return errors
+}
+
+/*
+*
+
+	func __treeHeight(tree *AVLTree[int, *TestData], node *AVLTNode[int, *TestData]) int64 {
+		if node == nil || node == tree._NIL {
+			return -1
+		}
+		m := int64(0)
+		hleft := __treeHeight(tree, node.left)
+		hright := __treeHeight(tree, node.right)
+		if hleft > hright {
+			m = hleft
+		} else {
+			m = hright
+		}
+		return 1 + m
+	}
+
+	func treeHeight(tree *AVLTree[int, *TestData]) int64 {
+		return __treeHeight(tree, tree.root) }
+*/
+func checkInfraNodesLinks(tree *AVLTree[int, *TestData], keys *[]int) []error {
+	coh := newCheckOrderHelpers(true, keys)
+	return __checkInfraNodesLinks(tree, coh)
+}
+
+func __testTreeNodesMetadatas(tree *AVLTree[int, *TestData], coh *CheckOrderHelpers) []error {
+	errors := make([]error, 0, 5)
+
+	/*
+		expectedHeight := treeHeight(tree)
+		if expectedHeight != tree.root.height {
+			errors = append(errors, fmt.Errorf("height mismatch: expected %d, got %d.", expectedHeight, tree.root.height))
+		}
+	*/
+	errorsSizes := checkTreeAndNodesSizeCaches(tree)
+	if len(errorsSizes) > 0 {
+		errors = append(errors, errorsSizes...)
+	}
+
+	errorsLinks := __checkInfraNodesLinks(tree, coh)
+	if len(errorsLinks) > 0 {
+		errors = append(errors, errorsLinks...)
+	}
+	return errors
+}
+
+func testTreeNodesMetadatas(tree *AVLTree[int, *TestData], keys *[]int) []error {
+	coh := newCheckOrderHelpers(true, keys)
+	return __testTreeNodesMetadatas(tree, coh)
+}
+
+func TestPrint_NTT(t *testing.T) {
+	size := 3
+	maxSize := 13
+	coh := newCheckOrderHelpers(true, &__VALUES_DEFAULT_len22)
+
+	var sb strings.Builder
+	for i := size; i <= maxSize; i++ {
+		//t.Logf("now doing size %d\n", i)
+		sb.WriteString(fmt.Sprintf("now doing size %d\n", i))
+		hasError := false
+		tree, err := newTestTree(CUSTOM_LENGTH, i)
+		if err != nil {
+			//t.Log(err)
+			sb.WriteString(err.Error())
+			sb.WriteString("\n")
+			hasError = true
+		}
+
+		if tree.Size() != int64(i) {
+			sb.WriteString(fmt.Sprintf("\nERROR: Wrong size!: expected = %d, got = %d", i, tree.Size()))
+		}
+
+		errors := __testTreeNodesMetadatas(tree, coh)
+
+		// TODO : fare anche gli altri test sui link
+		if len(errors) > 0 {
+			hasError = true
+			sb.WriteString(fmt.Sprintf("got %d errors:", len(errors)))
+			for _, e := range errors {
+				sb.WriteString(e.Error())
+				sb.WriteString("\n")
+			}
+		}
+		if hasError {
+			//t.Log(tree.String())
+			sb.WriteString("\nDump the tree")
+			sb.WriteString(tree.String())
+			sb.WriteString("\n")
+		}
+	}
+	sb.WriteString("\n\nFINISH\n")
+	if err := os.WriteFile("file.txt", []byte(sb.String()), 0777); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestData], error) {
@@ -3425,21 +3716,20 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		return newTestTree(EMPTY, 0)
 	}
 
-	var value int
 	size := defaultValueAmount
 	maxAmountAutomaticNodes := len(__VALUES_DEFAULT_len22)
 	if size > maxAmountAutomaticNodes {
 		size = maxAmountAutomaticNodes
 		defaultValueAmount -= size
 	}
+	var n *AVLTNode[int, *TestData] = nil
+	var pivot *AVLTNode[int, *TestData] = nil
 	/*
 		for i := 0; i < size; i++ {
 			value = __VALUES_DEFAULT_len22[i]
 			tree.Put(value, NewTestDataDefaultString(value))
 		}*/
-	n := NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[0]) // 20
-	tree.root = n
-	tree.firstInserted = n
+	addRootBaseNode(tree, __VALUES_DEFAULT_len22[0]) // 20
 	if size == 1 {
 		return tree, nil
 	}
@@ -3471,6 +3761,9 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 	lastInserted := tree.root.left
 	n.nextInserted = tree.root
 	n.prevInserted = lastInserted
+	lastInserted.nextInserted = n
+	tree.firstInserted.prevInserted = n
+	lastInserted = n
 	// other data
 	tree.root.height = 1
 	tree.root.sizeLeft = 1
@@ -3480,12 +3773,12 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		return tree, nil
 	}
 
-	lastInserted = n
+	lastInserted = n            // just in case
 	maxValue := tree.root.right // 30
 	if size >= 4 {
 		// TODO: size 4
 		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[3]) // 3
-		pivot := tree.root.left                                // == 10
+		pivot = tree.root.left                                 // == 10
 		n.father = pivot
 		pivot.left = n
 		pivot.sizeLeft = 1
@@ -3531,7 +3824,7 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 					subroot.keyVal.key)
 			}
 			tree.root.left = n
-			n.father = subroot
+			n.father = tree.root
 			n.sizeLeft = 1
 			n.sizeRight = 1
 			n.height = 1
@@ -3542,6 +3835,7 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 			subroot.father = n
 			subroot.height = 0
 			subroot.sizeLeft = 0
+			subroot.left = tree._NIL
 
 			// key order
 			n.nextInOrder = subroot // 10
@@ -3557,7 +3851,6 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		return tree, nil
 	}
 
-	// lastInserted = __appendLastInserted(n, tree, lastInserted)
 	if size >= 6 {
 		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[5]) // 50
 		//   .   .  20
@@ -3567,8 +3860,8 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		//  /.  \.   .   .   .\
 		// 3 .   10  .   .   .[50]
 		tree.size++
-		tree.root.sizeLeft++
-		pivot := tree.root.right
+		tree.root.sizeRight++
+		pivot = tree.root.right
 		pivot.height = 1
 		pivot.sizeRight = 1
 		pivot.right = n
@@ -3619,7 +3912,7 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 			maxValue = n
 			tree.minValue.prevInOrder = n
 			lastInserted.nextInOrder = n
-
+			// chronological order
 			lastInserted = __appendLastInserted(n, tree, lastInserted)
 		} else { // all filled, size exactly == 6
 			return tree, nil
@@ -3635,15 +3928,243 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 	//  /.  \.   .   ./  .\
 	// 3 .   10  . 30.   . 100
 
+	if size >= 8 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[7]) // 2
+		//   .   .  20
+		//   .   ./  .  \.
+		//   .  /.   .   .\
+		//   .5  .   .   . 50.
+		//  /.  \.   .   ./  .\
+		// 3 .   10  . 30.   . 100
+		//2
+		pivot = tree.minValue
+		n.father = pivot
+		pivot.left = n
+		tree.size++
+		tree.root.height++
+		tree.root.sizeLeft++
+		tree.root.left.height++
+		tree.root.left.sizeLeft++
+		pivot.height++
+		pivot.sizeLeft++
+		// key order
+		n.nextInOrder = tree.minValue // 3
+		n.prevInOrder = maxValue
+		tree.minValue.prevInOrder = n
+		lastInserted.nextInOrder = n
+		tree.minValue = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+		if size >= 9 {
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 50.
+			//  /.  \.   .   ./  .\
+			// 3 .   10  . 30.   . 100
+			//2
+			//[1] -> then, rotation
+
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 50.
+			//  /.  \.   .   ./  .\
+			// 2 .   10  . 30.   . 100
+			//[1] 3.
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[8]) // 1
+			tree.size++
+			tree.root.sizeLeft++
+			tree.root.left.sizeLeft++
+			subroot := tree.root.left.left // 3
+			pivot = tree.minValue          // == 2 == tree.root.left.left
+			pivot.father = tree.root.left  // 5
+			tree.root.left.left = pivot
+			//adjust pivot's right
+			pivot.right = subroot
+			subroot.father = pivot
+			// left
+			pivot.left = n
+			n.father = pivot
+			pivot.height = 1
+			pivot.sizeLeft = 1
+			pivot.sizeRight = 1
+			subroot.height = 0
+			subroot.sizeLeft = 0
+			subroot.left = tree._NIL
+			// key order
+			n.nextInOrder = pivot // 2
+			n.prevInOrder = maxValue
+			pivot.prevInOrder = n
+			maxValue.nextInOrder = n
+			tree.minValue = n
+			// chronological order
+			lastInserted = __appendLastInserted(n, tree, lastInserted)
+		} else { // all filled, size exactly == 8
+			return tree, nil
+		}
+	} else { // all filled, size exactly == 7
+		return tree, nil
+	}
+
+	if size >= 10 {
+
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[9]) // 42
+		//   .   .  20
+		//   .   ./  .  \.
+		//   .  /.   .   .\
+		//   .5  .   .   . 50.
+		//  /.  \.   .   ./  .\
+		// 2 .   10  . 30.   . 100
+		//1 3.   .   .  [42]
+		tree.size++
+		tree.root.sizeRight = 4
+		pivot = tree.root.right.left // 30
+		pivot.right = n
+		n.father = pivot
+		pivot.height++
+		pivot.father.height++ // 50
+		pivot.father.sizeLeft++
+		pivot.sizeRight++
+		// key order
+		n.nextInOrder = pivot.father // 50
+		n.prevInOrder = pivot
+		pivot.father.prevInOrder = n
+		pivot.nextInOrder = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+		if size >= 11 {
+			pivot2 := n                                             // 42
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[10]) // 37
+
+			// 2 .   10  . 30.   . 100
+			//1 3.   .   .   42
+			//   .   .   . [37] -> right-left
+			// ->
+			//   .   .  20
+			//   .   ./  .  \.
+			//   .  /.   .   .\
+			//   .5  .   .   . 50.
+			//  /.  \.   .   ./  .\
+			// 2 .   10  . [37]  . 100
+			//1 3.   .   .30 .42
+			tree.size++
+			tree.root.sizeRight++
+			tree.root.right.sizeLeft++
+			n.father = pivot.father // 50
+			pivot.father.left = n
+			n.height = 1
+			n.sizeLeft = 1
+			n.sizeRight = 1
+			n.left = pivot
+			n.right = pivot2
+			pivot.father = n
+			pivot2.father = n
+			pivot.right = tree._NIL
+			pivot.height = 0
+			pivot.sizeRight = 0
+			// key order
+			pivot.nextInOrder = n
+			n.prevInOrder = pivot
+			pivot2.prevInOrder = n
+			n.nextInOrder = pivot2
+			// chronological order
+			lastInserted = __appendLastInserted(n, tree, lastInserted)
+			// TODO
+		} else { // all filled, size exactly == 10
+			return tree, nil
+		}
+	} else { // all filled, size exactly == 9
+		return tree, nil
+	}
+
+	if size >= 12 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[11]) // 26
+		//   .   . 20.
+		//   .  /.   .  \
+		//   .5  .   .   . 50 -> right rotation
+		// 2 . 10.   .  37  100
+		//1 3.   .   .30 42
+		//   .   . [26]. -> causes rotation
+		// ->
+		//   .   . 20.
+		//   .  /.   .  \.
+		//   .5  .   .   . 37
+		// 2 .10 .   .  30  . 50.
+		//1 3.   .   .[26] .  42 100
+		pivot = tree.root.right // 50
+		if pivot.keyVal.key != 50 {
+			return nil, fmt.Errorf("on adding to size 12, the pivot's value is expected to be 50 but it's: %d.", pivot.keyVal.key)
+		}
+		tree.size++
+		subtree := pivot.left         // 37
+		whereToAppend := subtree.left // 30
+		n.father = whereToAppend
+		whereToAppend.left = n
+		whereToAppend.sizeLeft = 1
+		whereToAppend.height = 1
+
+		pivot.father = subtree
+		pivot.height = 1
+		pivot.left = subtree.right
+		subtree.right.father = pivot
+		pivot.sizeLeft = 1
+		tree.root.right = subtree
+		subtree.father = tree.root
+		subtree.right = pivot
+		subtree.sizeRight = 3
+		subtree.height = 2
+		subtree.sizeLeft = 2
+		tree.root.sizeRight++
+		if tree.root.sizeRight != 6 {
+			return nil, fmt.Errorf("upon adding size 12, tree.root.sizeRight should have been 6 but it's: %d.\n", tree.root.sizeRight)
+		}
+
+		// key order
+		tree.root.nextInOrder = n
+		n.prevInOrder = tree.root
+		whereToAppend.prevInOrder = n
+		n.nextInOrder = whereToAppend
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+	} else { // all filled, size exactly == 11
+		return tree, nil
+	}
+
+	if size >= 13 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[12]) // 33
+		//
+		//   .   . 20.
+		//   .  /.   .  \.
+		//   .5  .   .   . 37
+		// 2 .10 .   .  30   . 50
+		//1 3.   .   .26 [33]42 100
+		pivot = tree.root.right.left // 30
+		n.father = pivot
+		pivot.right = n
+		tree.size++
+		tree.root.sizeRight++
+		tree.root.right.sizeLeft++
+		pivot.sizeRight++
+		// key order
+		pivot.nextInOrder = n
+		n.prevInOrder = pivot
+		pivot.father.prevInOrder = n
+		n.nextInOrder = pivot.father
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+	} else { // all filled, size exactly == 12
+		return tree, nil
+	}
+
 	/*TODO sizes:
 	- 8 9
-	- 10 11
+	- 10 11testTreeNodesMetadatas
 	- 12
 	- 13 (it's very simple)
 	- 14 15 16
 	- under 22
 	- over 22 -> just the loop below
-	*/
 
 	if defaultValueAmount > 0 {
 		for i := 0; i < defaultValueAmount; i++ {
@@ -3651,7 +4172,20 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 			tree.Put(value, NewTestDataDefaultString(value))
 		}
 	}
-
+	*/
+	if lastInserted != tree.firstInserted.prevInserted {
+		return nil, fmt.Errorf("BUG: the node last inserted (%d) is NOT the previous-chronological of the first inserted (%d)", lastInserted.keyVal.key, tree.firstInserted.keyVal.key)
+	}
+	if lastInserted.nextInserted != tree.firstInserted {
+		return nil, fmt.Errorf("BUG: the node last inserted's (%d) next-chronological is NOT the first inserted node (%d)", lastInserted.keyVal.key, tree.firstInserted.keyVal.key)
+	}
+	if maxValue != tree.minValue.prevInOrder {
+		return nil, fmt.Errorf("BUG: the node with maximal key value (%d) is NOT the previous-in-order of the minimal value (%d)", maxValue.keyVal.key, tree.minValue.keyVal.key)
+	}
+	if maxValue.nextInOrder != tree.minValue {
+		return nil, fmt.Errorf("BUG: the node with maximal key value's (%d) next-in-order is NOT the minimal value (%d)", maxValue.keyVal.key, tree.minValue.keyVal.key)
+	}
+	lastInserted = nil
 	return tree, nil
 }
 

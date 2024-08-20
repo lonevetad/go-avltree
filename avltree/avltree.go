@@ -1062,12 +1062,14 @@ func (t *AVLTree[K, V]) inlineStringKeyOnly(printer func(string), n *AVLTNode[K,
 	printer(")")
 }
 
-func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V])) error {
+func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V], int) error) error {
 	if t.IsEmpty() || action == nil {
 		return nil
 	}
 	canContinue := true
 	iterMax := t.size + 1 //anti-bug
+	var err error = nil
+	index := 0
 	switch mode {
 	case InOrder:
 		{
@@ -1078,7 +1080,11 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 				if iterMax < 0 {
 					return fmt.Errorf("BUG ! for-each is looping more than expected")
 				}
-				action(current)
+				err = action(current, index)
+				if err != nil {
+					return err
+				}
+				index++
 				current = current.nextInOrder
 				canContinue = current != start
 			}
@@ -1087,12 +1093,17 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 		{
 			current := t.minValue.prevInOrder
 			start := current
+			index = int(t.size) - 1
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
 					return fmt.Errorf("BUG ! for-each is looping more than expected")
 				}
-				action(current)
+				err = action(current, index)
+				if err != nil {
+					return err
+				}
+				index--
 				current = current.prevInOrder
 				canContinue = current != start
 			}
@@ -1101,12 +1112,17 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 		{
 			current := t.firstInserted.prevInserted
 			start := current
+			index = int(t.size) - 1
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
 					return fmt.Errorf("BUG ! for-each is looping more than expected")
 				}
-				action(current)
+				err = action(current, index)
+				if err != nil {
+					return err
+				}
+				index--
 				current = current.prevInserted
 				canContinue = current != start
 			}
@@ -1120,7 +1136,11 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 				if iterMax < 0 {
 					return fmt.Errorf("BUG ! for-each is looping more than expected")
 				}
-				action(current)
+				err = action(current, index)
+				if err != nil {
+					return err
+				}
+				index++
 				current = current.nextInserted
 				canContinue = current != start
 			}
@@ -1227,11 +1247,14 @@ func (t *AVLTree[K, V]) CompactBalance() {
 	fmt.Println(t)
 }
 
-func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V)) error {
+func (t *AVLTree[K, V]) ForEach(mode ForEachMode, action func(K, V, int) error) error {
 	if t.IsEmpty() || action == nil {
 		return nil
 	}
-	return t.forEachNode(mode, func(n *AVLTNode[K, V]) { action(n.keyVal.key, n.keyVal.value) })
+	return t.forEachNode(mode, func(n *AVLTNode[K, V], index int) error {
+		action(n.keyVal.key, n.keyVal.value, index)
+		return nil
+	})
 }
 
 func (t *AVLTree[K, V]) StringInto(fullLogNode bool, printer func(string)) {
