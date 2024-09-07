@@ -3416,12 +3416,12 @@ func newCheckOrderHelpers(ascending bool, keys *[]int) *CheckOrderHelpers {
 *
 Returns: the total size of the node (included the current one), a possible error and this current node's height
 */
-func __checkTreeNodesSizeCaches(tree *AVLTree[int, *TestData], node *AVLTNode[int, *TestData], depth int) (int64, error, int64) {
+func __checkTreeNodesSizeCaches(tree *AVLTree[int, *TestData], node *AVLTNode[int, *TestData], depth int) (int64, int64, error) {
 	if node == nil {
-		return -1, fmt.Errorf("node is nil ad depth: %d.", depth), -1
+		return -1, -1, fmt.Errorf("node is nil ad depth: %d.", depth)
 	}
 	if node == tree._NIL {
-		return 0, nil, -1
+		return 0, -1, nil
 	}
 	var err error = nil
 	var expectedSizeRight int64
@@ -3430,20 +3430,31 @@ func __checkTreeNodesSizeCaches(tree *AVLTree[int, *TestData], node *AVLTNode[in
 	var hleft int64
 	var hright int64
 
-	expectedSizeLeft, err, hleft = __checkTreeNodesSizeCaches(tree, node.left, depth+1)
+	expectedSizeLeft, hleft, err = __checkTreeNodesSizeCaches(tree, node.left, depth+1)
 	if err != nil {
-		return -3, fmt.Errorf("error on __checkTreeNodesSizeCaches , left recursion from current node <<%d>>: %s", node.keyVal.key, err.Error()), -1
+		return -3, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, left recursion from current node <<%d>>: %s", depth, node.keyVal.key, err.Error())
 	}
 	if expectedSizeLeft != node.sizeLeft {
-		return -4, fmt.Errorf("at depth %d, on node with key=%d, mismatch between size left: expected %d, node's %d", depth, node.keyVal.key, expectedSizeLeft, node.sizeLeft), -1
+		return -4, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, on node with key=%d, mismatch between size left: expected %d, node's %d", depth, node.keyVal.key, expectedSizeLeft, node.sizeLeft)
 	}
-	expectedSizeRight, err, hright = __checkTreeNodesSizeCaches(tree, node.right, depth+1)
+	expectedSizeRight, hright, err = __checkTreeNodesSizeCaches(tree, node.right, depth+1)
 	if err != nil {
-		return -5, fmt.Errorf("error on __checkTreeNodesSizeCaches , right recursion from current node <<%d>>: %s", node.keyVal.key, err.Error()), -1
+		return -5, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, right recursion from current node <<%d>>: %s", depth, node.keyVal.key, err.Error())
 	}
 	if expectedSizeRight != node.sizeRight {
-		return -6, fmt.Errorf("at depth %d, on node with key=%d, mismatch between size right: expected %d, node's %d", depth, node.keyVal.key, expectedSizeRight, node.sizeRight), -1
+		return -6, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, on node with key=%d, mismatch between size right: expected %d, node's %d", depth, node.keyVal.key, expectedSizeRight, node.sizeRight)
 	}
+
+	// check for the height/balance property
+	diffHeightBranches := hleft - hright
+	if diffHeightBranches > 1 {
+		// UNBALANCED on the left
+		return -7, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, on node with key=%d, left branch is unbalanced: left=%d, right=%d", depth, node.keyVal.key, hleft, hright)
+	} else if diffHeightBranches < -1 {
+		// UNBALANCED on the right
+		return -8, -1, fmt.Errorf("error on __checkTreeNodesSizeCaches , at depth %d, on node with key=%d, right branch is unbalanced: left=%d, right=%d", depth, node.keyVal.key, hleft, hright)
+	}
+
 	if hleft > hright {
 		expectedHeight = hleft
 	} else {
@@ -3451,13 +3462,13 @@ func __checkTreeNodesSizeCaches(tree *AVLTree[int, *TestData], node *AVLTNode[in
 	}
 	expectedHeight++ // count the current node
 	if node.height != int64(expectedHeight) {
-		return -2, fmt.Errorf("node(key=%d)'s height (%d) does not match the expected (%d)", node.keyVal.key, node.height, expectedHeight), -1
+		return -2, -1, fmt.Errorf("node(key=%d)'s height (%d) does not match the expected (%d)", node.keyVal.key, node.height, expectedHeight)
 	}
-	return 1 + expectedSizeLeft + expectedSizeRight, nil, expectedHeight
+	return 1 + expectedSizeLeft + expectedSizeRight, expectedHeight, nil
 }
 func checkTreeAndNodesSizeCaches(tree *AVLTree[int, *TestData]) []error {
-	errors := make([]error, 0, 2)
-	sizeTotal, err, expectedHeight := __checkTreeNodesSizeCaches(tree, tree.root, 0)
+	errors := make([]error, 0, 3)
+	sizeTotal, expectedHeight, err := __checkTreeNodesSizeCaches(tree, tree.root, 0)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("on checkTreeAndNodesSizeCaches, check failed with error number %d,  and error text:\n\t%s\n", sizeTotal, err.Error()))
 	}
@@ -3538,6 +3549,59 @@ func __checkInfraNodesLinks(tree *AVLTree[int, *TestData], coh *CheckOrderHelper
 	return errors
 }
 
+func __checkKeyOrderingNode(tree *AVLTree[int, *TestData], node *AVLTNode[int, *TestData]) []error {
+	if node.left == tree._NIL && node.right == tree._NIL {
+		return nil // cut short for leaves
+	}
+	var errors []error = nil
+	if node.left != tree._NIL {
+		if tree.avlTreeConstructorParams.Comparator(node.left.keyVal.key, node.keyVal.key) > 0 {
+			errors = make([]error, 0, 2)
+			currentError := fmt.Errorf("node (%d) has a left node with greater key (%d)", node.keyVal.key, node.left.keyVal.key)
+			errors = append(errors, currentError)
+		}
+		errorsLeft := __checkKeyOrderingNode(tree, node.left)
+		if errorsLeft != nil {
+			if errors == nil {
+				errors = errorsLeft
+			} else {
+				errors = append(errors, errorsLeft...)
+			}
+		}
+	}
+	if node.right != tree._NIL {
+		if tree.avlTreeConstructorParams.Comparator(node.right.keyVal.key, node.keyVal.key) < 0 {
+			currentError := fmt.Errorf("node (%d) has a right node with lesser key (%d)", node.keyVal.key, node.right.keyVal.key)
+			if errors == nil {
+				errors = make([]error, 0, 2)
+				errors = append(errors, currentError)
+			} else {
+				errors = append(errors, currentError)
+			}
+		}
+		errorsRight := __checkKeyOrderingNode(tree, node.right)
+		if errorsRight != nil {
+			if errors == nil {
+				errors = errorsRight
+			} else {
+				errors = append(errors, errorsRight...)
+			}
+		}
+	}
+
+	if len(errors) != 0 {
+		return errors
+	}
+	return nil
+}
+
+func __checkKeyOrdering(tree *AVLTree[int, *TestData]) []error {
+	if tree == nil || tree.size == 0 || tree.root == tree._NIL {
+		return nil
+	}
+	return __checkKeyOrderingNode(tree, tree.root)
+}
+
 /*
 *
 
@@ -3559,11 +3623,15 @@ func __checkInfraNodesLinks(tree *AVLTree[int, *TestData], coh *CheckOrderHelper
 	func treeHeight(tree *AVLTree[int, *TestData]) int64 {
 		return __treeHeight(tree, tree.root) }
 */
-func checkInfraNodesLinks(tree *AVLTree[int, *TestData], keys *[]int) []error {
+func CheckInfraNodesLinks(tree *AVLTree[int, *TestData], keys *[]int) []error {
 	coh := newCheckOrderHelpers(true, keys)
 	return __checkInfraNodesLinks(tree, coh)
 }
 
+/*
+NOTE: THIS is the function that should be called everywhere: either in loops, to recycle
+the "CheckOrdeHelpers" instance, or through it direct caller "checkInfraNodesLinks"
+*/
 func __testTreeNodesMetadatas(tree *AVLTree[int, *TestData], coh *CheckOrderHelpers) []error {
 	errors := make([]error, 0, 5)
 
@@ -3573,6 +3641,11 @@ func __testTreeNodesMetadatas(tree *AVLTree[int, *TestData], coh *CheckOrderHelp
 			errors = append(errors, fmt.Errorf("height mismatch: expected %d, got %d.", expectedHeight, tree.root.height))
 		}
 	*/
+	errorOrdering := __checkKeyOrdering(tree)
+	if len(errorOrdering) > 0 {
+		errors = append(errors, errorOrdering...)
+	}
+
 	errorsSizes := checkTreeAndNodesSizeCaches(tree)
 	if len(errorsSizes) > 0 {
 		errors = append(errors, errorsSizes...)
@@ -3585,6 +3658,16 @@ func __testTreeNodesMetadatas(tree *AVLTree[int, *TestData], coh *CheckOrderHelp
 	return errors
 }
 
+/*
+* Check basically everything, every property that a "AVLTree" must hold.
+* See {#__testTreeNodesMetadatas()}, since it's the function called that actually
+* implements the checks.
+* Currently (07-09-2024) it checks for:
+* -) internal node's key ordering, i.e. the search tree ordering constraint
+* -) all nodes' cached values are correct: height, left and right size
+* -) chains of nodes, i.e. chronological and sorted orders
+* The combined array of errors is then returned
+ */
 func testTreeNodesMetadatas(tree *AVLTree[int, *TestData], keys *[]int) []error {
 	coh := newCheckOrderHelpers(true, keys)
 	return __testTreeNodesMetadatas(tree, coh)

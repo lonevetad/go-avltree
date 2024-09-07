@@ -47,8 +47,9 @@ func printAVLTree(t *avltree.AVLTree[int, *TestData]) {
 	fmt.Printf("t:\n%v\n;\n\n and t's NIL:\n %v\n", t, t.NILL())
 }
 
-func printForEach(id int, td *TestData) {
+func printForEach(id int, td *TestData, index int) error {
 	fmt.Printf("%s, ", td.String())
+	return nil
 }
 
 //
