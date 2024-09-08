@@ -3296,7 +3296,7 @@ var __VALUES_DEFAULT_len22 = []int{
 	//   /   .\
 	//  5.   .30
 	//3  10
-	50, 100, //
+	50, 100, // size: 7
 	//   .   .  20
 	//   .   ./  .  \.
 	//   .  /.   .   .\
@@ -3325,7 +3325,15 @@ var __VALUES_DEFAULT_len22 = []int{
 	//   .5  .   .   . 37
 	// 2 .10 .   .  30   . 50
 	//1 3.   .   .26 .33 42 100
-	666, 125, 99, // size 16
+	666, 125, // size: 15
+	//
+	//   .   . 20.
+	//   .  /.   .  \.
+	//   .5  .   .   . 37
+	// 2 .10 .   .  30   . 50
+	//1 3.   .   .26 .33 42 125
+	//   .   .   .   .   . 100 666
+	99, // size: 16
 	//   .   .   .   . 20.
 	//   .   .   /   .   .   . \ .
 	//   .   5   .   .   .   .   .  37
@@ -3675,7 +3683,7 @@ func testTreeNodesMetadatas(tree *AVLTree[int, *TestData], keys *[]int) []error 
 
 func TestPrint_NTT(t *testing.T) {
 	size := 3
-	maxSize := 13
+	maxSize := 15
 	coh := newCheckOrderHelpers(true, &__VALUES_DEFAULT_len22)
 
 	var sb strings.Builder
@@ -4237,6 +4245,67 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		// chronological order
 		lastInserted = __appendLastInserted(n, tree, lastInserted)
 	} else { // all filled, size exactly == 12
+		return tree, nil
+	}
+
+	if size >= 14 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[13])                                        // 666
+		if maxValue != tree.minValue.prevInOrder || maxValue.keyVal.key != __VALUES_DEFAULT_len22[6] { // 100
+			return nil, fmt.Errorf("at size 13, maxValue is expected to be %d, but it is %d and it's referenced as %d", __VALUES_DEFAULT_len22[6], maxValue.keyVal.key, tree.minValue.prevInOrder.keyVal.key)
+		}
+		pivot = maxValue
+		pivot.right = n
+		n.father = pivot
+		tree.size++
+		iterNode := pivot
+		for iterNode != tree._NIL {
+			iterNode.height++
+			iterNode.sizeRight++
+			iterNode = iterNode.father
+		}
+		// key order
+		tree.minValue.prevInOrder = n
+		n.nextInOrder = tree.minValue
+		n.prevInOrder = maxValue
+		maxValue.nextInOrder = n
+		maxValue = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+	} else { // all filled, size exactly == 13
+		return tree, nil
+	}
+
+	if size >= 15 {
+		n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[14]) // 125
+		pivot = tree.root                                       // 20
+		pivot.sizeRight++
+		pivot = pivot.right // 37
+		pivot.sizeRight++
+		pivot = pivot.right // 50
+		pivot.sizeRight++
+		pivot = pivot.right     // 100
+		n.father = pivot.father // 50
+		pivot.father.right = n
+		n.left = pivot
+		n.right = pivot.right // maxValue
+		pivot.right.father = n
+		pivot.right = tree._NIL
+		pivot.height = 0
+		pivot.sizeRight = 0
+		n.height = 1
+		n.sizeLeft = 1
+		n.sizeRight = 1
+		// key order
+		n.father.nextInOrder = pivot
+		pivot.prevInOrder = n.father
+		pivot.nextInOrder = n
+		n.prevInOrder = pivot
+		n.nextInOrder = maxValue
+		maxValue.prevInOrder = n
+		// chronological order
+		lastInserted = __appendLastInserted(n, tree, lastInserted)
+		tree.size++
+	} else { // all filled, size exactly == 14
 		return tree, nil
 	}
 
