@@ -8,6 +8,6 @@ A Go translation of my AVL Tree implementation (made in Java in my other repo "J
 
 ```bash
 cd avltree
-go test ./avltree_test.go
+go test -v > TESTS.txt
 
 ```

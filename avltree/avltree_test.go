@@ -158,6 +158,7 @@ func assertTreeLowLevelState(t *testing.T, tree *AVLTree[int, *TestData], expect
 
 	var gotChronological []int
 	if err := tree.ForEach(Queue, func(k int, v *TestData, index int) error {
+		fmt.Printf("got chronological ... %d\n", k)
 		gotChronological = append(gotChronological, k)
 		return nil
 	}); err != nil {

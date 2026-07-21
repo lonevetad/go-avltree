@@ -538,6 +538,8 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 	hasRight := n.right != t._NIL
 
 	if hasLeft && hasRight {
+		fmt.Print("before removing on both-branched tree ...")
+		fmt.Print(t.String())
 		successor := n.nextInOrder                    // 33
 		successorPrevInOrder := successor.prevInOrder // shall be "n" itself
 		successorNextInOrder := successor.nextInOrder
@@ -571,10 +573,11 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 		nPrevInserted.nextInserted = nNextInserted
 		nNextInserted.prevInserted = nPrevInserted
 		// re-link successors' neighbor
-		successorNextInserted.prevInserted = n
-		successorPrevInserted.nextInserted = n
+		n.nextInserted = successorNextInserted
 		n.nextInserted = successorNextInserted
 		n.prevInserted = successorPrevInserted
+		successorNextInserted.prevInserted = n
+		successorPrevInserted.nextInserted = n
 		if successorPrevInOrder != t._NIL {
 			successorPrevInOrder.nextInOrder = n
 		}
@@ -586,6 +589,9 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 
 		t.recalculateHeight(successor, true)
 		t.recalculateSizes(successor, true)
+
+		fmt.Print("after removing on both-branched tree ...")
+		fmt.Print(t.String())
 
 	} else if hasLeft || hasRight {
 		// just one child -> that child is a leaf
@@ -910,11 +916,15 @@ func (t *AVLTree[K, V]) recalculateSizes(n *AVLTNode[K, V], recurseToRoot bool) 
 }
 
 func (n *AVLTNode[K, V]) unlinkAll() {
-	n.prevInOrder.nextInOrder = n.nextInOrder
-	n.nextInOrder.prevInOrder = n.prevInOrder
+	pio := n.prevInOrder
+	nio := n.nextInOrder
+	pin := n.prevInserted
+	nin := n.nextInserted
+	pio.nextInOrder = nio
+	nio.prevInOrder = pio
 
-	n.prevInserted.nextInserted = n.nextInserted
-	n.nextInserted.prevInserted = n.prevInserted
+	pin.nextInserted = nin
+	nin.prevInserted = pin
 }
 
 func (t *AVLTree[K, V]) unlinkUpdateOptimizations(n *AVLTNode[K, V]) {
