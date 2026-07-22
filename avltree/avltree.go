@@ -539,32 +539,89 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 
 	if hasLeft && hasRight {
 		successor := n.nextInOrder // 33
+		if t.size == 3 {
+			// "n" is the root
+			if n != t.root {
+				return t.avlTreeConstructorParams.ValueZeroValue, fmt.Errorf("ERROR: Removal of a node with both left and right branches, on a tree with size = 3, that is NOT the root ... what is it?\nthis node: %s\ntree:\n%s", n.String(), t.String())
+			}
+			if n.right != successor {
+				return t.avlTreeConstructorParams.ValueZeroValue, fmt.Errorf("ERROR: On a size-3-tree, the removal of the root should have said root's successor to be its right node.\nthis node: %s\ntree:\n%s", n.String(), t.String())
+			}
+			nextInLine := n.nextInserted
+			if t.firstInserted == n {
+				t.firstInserted = nextInLine
+			}
+			t.size = 2
+			//ROOT: the right node
+			t.root = successor
+			otherNode := n.left
+			successor.left = otherNode
+			otherNode.father = successor
+			successor.father = t._NIL
+			successor.right = t._NIL
+			successor.sizeLeft = 1
+			successor.height = 1
+			// metadata links
+			successor.nextInOrder = otherNode
+			successor.prevInOrder = otherNode
+			otherNode.nextInOrder = successor
+			otherNode.prevInOrder = successor
+			n.unlinkAll()
+			t.cleanNode(n)
+			t.cleanNil()
+			return n.keyVal.value, nil
 
-		// shift values
-		n.keyVal.key = successor.keyVal.key
-		n.keyVal.value = successor.keyVal.value
-		actionPosition = successor
+		} else {
 
-		// but first, prepare non-inOrder optimization's links
-		nPrevInserted := n.prevInserted
-		nNextInserted := n.nextInserted
-		successorSPrevInserted := successor.prevInserted
-		successorSNextInserted := successor.nextInserted
+			successorPrevInOrder := successor.prevInOrder // shall be "n" itself
+			successorNextInOrder := successor.nextInOrder
 
-		t.remove(successor)
-		//t.updateOptimizationsOnRemove(n, successor)
-		// un-link "n"
-		nPrevInserted.nextInserted = nNextInserted
-		nNextInserted.prevInserted = nPrevInserted
-		// re-link successors' neighbor
-		successorSPrevInserted.nextInserted = n
-		n.prevInserted = successorSPrevInserted
-		successorSNextInserted.prevInserted = n
-		n.nextInserted = successorSNextInserted
+			// shift values
+			n.keyVal.key = successor.keyVal.key
+			n.keyVal.value = successor.keyVal.value
+			actionPosition = successor
+			// keep the references of the removed node to keep the metadata (chronological order), since values has shifted
+			successorNextInserted := successor.nextInserted
+			successorPrevInserted := successor.prevInserted
+			nNextInserted := n.nextInserted
+			nPrevInserted := n.prevInserted
 
-		t.recalculateHeight(successor, true)
-		t.recalculateSizes(successor, true)
+			// --- prevent "dirty-ening" from the "t.remove(...)" below
+			firstInserted_cache := t.firstInserted
+			wasFirstInserted := t.firstInserted == n
+			if wasFirstInserted {
+				firstInserted_cache = n.nextInserted
+			}
 
+			// The successor removal is part of the current delete operation, so
+			// only the outer removal should decrement the logical size.
+			t.size++
+			t.remove(successor)
+			if wasFirstInserted {
+				t.firstInserted = firstInserted_cache
+			}
+			// un-link "n"
+			nPrevInserted.nextInserted = nNextInserted
+			nNextInserted.prevInserted = nPrevInserted
+			// re-link successors' neighbor
+			n.nextInserted = successorNextInserted
+			n.nextInserted = successorNextInserted
+			n.prevInserted = successorPrevInserted
+			successorNextInserted.prevInserted = n
+			successorPrevInserted.nextInserted = n
+			if successorPrevInOrder != t._NIL {
+				successorPrevInOrder.nextInOrder = n
+			}
+			if successorNextInOrder != t._NIL {
+				successorNextInOrder.prevInOrder = n
+			}
+			n.prevInOrder = successorPrevInOrder
+			n.nextInOrder = successorNextInOrder
+
+			t.recalculateHeight(successor, true)
+			t.recalculateSizes(successor, true)
+
+		}
 	} else if hasLeft || hasRight {
 		// just one child -> that child is a leaf
 		// otherwise, a rotation would have happened while insertion
@@ -578,7 +635,7 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 			child = n.right
 			n.right = t._NIL
 		}
-		// just shilft values
+		// just shift values
 		n.keyVal.key = child.keyVal.key
 		n.keyVal.value = child.keyVal.value
 		n.height = 0
@@ -587,7 +644,8 @@ func (t *AVLTree[K, V]) remove(n *AVLTNode[K, V]) (V, error) {
 		child.father = t._NIL
 		actionPosition = n
 
-		t.updateOptimizationsOnRemove(n, child)
+		t.updateOptimizationsOnRemove(n, child, hasLeft)
+		t.cleanNode(child)
 	} else {
 		// leaf -> nodeToUnlink = n
 		if notNilFather {
@@ -888,11 +946,14 @@ func (t *AVLTree[K, V]) recalculateSizes(n *AVLTNode[K, V], recurseToRoot bool) 
 }
 
 func (n *AVLTNode[K, V]) unlinkAll() {
-	n.prevInOrder.nextInOrder = n.nextInOrder
-	n.nextInOrder.prevInOrder = n.prevInOrder
-
-	n.prevInserted.nextInserted = n.nextInserted
-	n.nextInserted.prevInserted = n.prevInserted
+	pio := n.prevInOrder
+	nio := n.nextInOrder
+	pin := n.prevInserted
+	nin := n.nextInserted
+	pio.nextInOrder = nio
+	nio.prevInOrder = pio
+	pin.nextInserted = nin
+	nin.prevInserted = pin
 }
 
 func (t *AVLTree[K, V]) unlinkUpdateOptimizations(n *AVLTNode[K, V]) {
@@ -905,7 +966,7 @@ func (t *AVLTree[K, V]) unlinkUpdateOptimizations(n *AVLTNode[K, V]) {
 	n.unlinkAll()
 }
 
-func (t *AVLTree[K, V]) updateOptimizationsOnRemove(nWillBeSwapped *AVLTNode[K, V], childWillBeDestroyed *AVLTNode[K, V]) {
+func (t *AVLTree[K, V]) updateOptimizationsOnRemove(nWillBeSwapped *AVLTNode[K, V], childWillBeDestroyed *AVLTNode[K, V], isLeft bool) {
 	// NOTE: I'll leave the internal comments just to reference
 	// and explain the thought processes
 
@@ -957,14 +1018,19 @@ func (t *AVLTree[K, V]) updateOptimizationsOnRemove(nWillBeSwapped *AVLTNode[K, 
 
 	// MIN-VALUE
 
-	if t.minValue == childWillBeDestroyed {
-		// redirect links towards "n", since the "min key" has to remain the same
+	if (t.minValue == childWillBeDestroyed) || (t.minValue == nWillBeSwapped) {
 		t.minValue = nWillBeSwapped
-	} else if t.minValue == nWillBeSwapped {
-		// just update the value
-		t.minValue = nWillBeSwapped.nextInOrder
+	}
+	if isLeft {
+		// all is ok for the nextInOrder ... the prevInOrder needs fixes
+		childWillBeDestroyed.prevInOrder.nextInOrder = nWillBeSwapped
+		nWillBeSwapped.prevInOrder = childWillBeDestroyed.prevInOrder
+	} else {
+		childWillBeDestroyed.nextInOrder.prevInOrder = nWillBeSwapped
+		nWillBeSwapped.nextInOrder = childWillBeDestroyed.nextInOrder
 	}
 	/*
+
 		// "n"'s neighbour needs to forget that node
 		nWillBeSwapped.prevInOrder.nextInOrder = nWillBeSwapped.nextInOrder
 		nWillBeSwapped.nextInOrder.prevInOrder = nWillBeSwapped.prevInOrder
@@ -976,13 +1042,17 @@ func (t *AVLTree[K, V]) updateOptimizationsOnRemove(nWillBeSwapped *AVLTNode[K, 
 		// the "old child" neighbours now need to track the right node: "n"
 		childWillBeDestroyed.nextInOrder.prevInOrder = nWillBeSwapped
 		childWillBeDestroyed.prevInOrder.nextInOrder = nWillBeSwapped
+		//unlink the "child"
+		if childWillBeDestroyed.nextInOrder != t._NIL {
+			childWillBeDestroyed.nextInOrder.prevInOrder = childWillBeDestroyed.prevInOrder
+		}
+		if childWillBeDestroyed.prevInOrder != t._NIL {
+			childWillBeDestroyed.prevInOrder.nextInOrder = childWillBeDestroyed.nextInOrder
+		}
 	*/
-	//unlink the "child"
-	childWillBeDestroyed.nextInOrder.prevInOrder = childWillBeDestroyed.prevInOrder
-	childWillBeDestroyed.prevInOrder.nextInOrder = childWillBeDestroyed.nextInOrder
 
 	// the "Old n" node instance will hold the "child"'s data,
-	// so on need to update links
+	// so no need to update links
 
 	// cleanse the "old child"
 	childWillBeDestroyed.prevInOrder = t._NIL
@@ -1078,7 +1148,7 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
+					return fmt.Errorf("BUG ! InOrder for-each is looping more than expected")
 				}
 				err = action(current, index)
 				if err != nil {
@@ -1097,7 +1167,7 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
+					return fmt.Errorf("BUG ! ReverseInOrder for-each is looping more than expected")
 				}
 				err = action(current, index)
 				if err != nil {
@@ -1116,7 +1186,7 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
+					return fmt.Errorf("BUG ! Stack for-each is looping more than expected")
 				}
 				err = action(current, index)
 				if err != nil {
@@ -1134,7 +1204,7 @@ func (t *AVLTree[K, V]) forEachNode(mode ForEachMode, action func(*AVLTNode[K, V
 			for canContinue && iterMax >= 0 { // do-while loop
 				iterMax--
 				if iterMax < 0 {
-					return fmt.Errorf("BUG ! for-each is looping more than expected")
+					return fmt.Errorf("BUG ! Queue for-each is looping more than expected")
 				}
 				err = action(current, index)
 				if err != nil {

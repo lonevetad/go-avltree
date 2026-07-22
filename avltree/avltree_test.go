@@ -3,6 +3,7 @@ package avltree
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,12 @@ type TestData struct {
 	Text string
 }
 type ForEachAction[K any, V any] func(node *AVLTNode[K, V], index int) error
+
+type SimplifiedTreeNode struct {
+	key   int
+	left  *SimplifiedTreeNode
+	right *SimplifiedTreeNode
+}
 
 func Extract(t *TestData) int {
 	if t == nil {
@@ -83,6 +90,103 @@ func NewTree() (*AVLTree[int, *TestData], error) {
 	//td := NewTestData()
 	avlTreeConstructorParams := NewMetadata(-1000, nil)
 	return NewAVLTree(avlTreeConstructorParams)
+}
+
+func newTreeWithKeys(keys []int) (*AVLTree[int, *TestData], []*TestData, error) {
+	tree, err := NewTree()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	values := make([]*TestData, 0, len(keys))
+	for _, key := range keys {
+		value := NewTestDataDefaultString(key)
+		values = append(values, value)
+		if _, err := tree.Put(key, value); err != nil {
+			return nil, nil, err
+		}
+	}
+	return tree, values, nil
+}
+
+func assertTreeLowLevelState(t *testing.T, tree *AVLTree[int, *TestData], expectedInOrder []int, expectedChronological []int) {
+	t.Helper()
+
+	if tree == nil {
+		t.Fatal("tree should not be nil")
+	}
+	if tree._NIL == nil {
+		t.Fatal("tree sentinel should not be nil")
+	}
+	if tree.Size() != int64(len(expectedInOrder)) {
+		t.Fatalf("expected size %d, got %d", len(expectedInOrder), tree.Size())
+	}
+
+	if len(expectedInOrder) == 0 {
+		if tree.root != tree._NIL {
+			t.Fatalf("expected empty tree root to be _NIL, got %#v", tree.root)
+		}
+		if tree.minValue != tree._NIL {
+			t.Fatalf("expected empty tree minValue to be _NIL, got %#v", tree.minValue)
+		}
+		if tree.firstInserted != tree._NIL {
+			t.Fatalf("expected empty tree firstInserted to be _NIL, got %#v", tree.firstInserted)
+		}
+		return
+	}
+
+	if tree.root == nil || tree.root == tree._NIL {
+		t.Fatal("tree root should not be nil or _NIL")
+	}
+	if tree.root.father != tree._NIL {
+		t.Fatalf("root father should be _NIL, got %#v", tree.root.father)
+	}
+	if tree.minValue == nil || tree.minValue == tree._NIL {
+		t.Fatal("tree minValue should not be nil or _NIL")
+	}
+	if tree.firstInserted == nil || tree.firstInserted == tree._NIL {
+		t.Fatal("tree firstInserted should not be nil or _NIL")
+	}
+
+	var gotInOrder []int
+	if err := tree.ForEach(InOrder, func(k int, v *TestData, index int) error {
+		gotInOrder = append(gotInOrder, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("InOrder traversal failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotInOrder, expectedInOrder) {
+		t.Fatalf("expected in-order traversal %v, got %v", expectedInOrder, gotInOrder)
+	}
+	if gotInOrder[0] != tree.minValue.keyVal.key {
+		t.Fatalf("expected minValue key %d, got %d", gotInOrder[0], tree.minValue.keyVal.key)
+	}
+
+	var gotChronological []int
+	if err := tree.ForEach(Queue, func(k int, v *TestData, index int) error {
+		fmt.Printf("got chronological ... %d\n", k)
+		gotChronological = append(gotChronological, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("Queue traversal failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotChronological, expectedChronological) {
+		t.Fatalf("expected chronological traversal %v, got %v", expectedChronological, gotChronological)
+	}
+	if gotChronological[0] != tree.firstInserted.keyVal.key {
+		t.Fatalf("expected firstInserted key %d, got %d", gotChronological[0], tree.firstInserted.keyVal.key)
+	}
+
+	errors := testTreeNodesMetadatas(tree, &expectedChronological)
+	if len(errors) > 0 {
+		var sb strings.Builder
+		sb.WriteString("tree metadata checks failed:")
+		for _, err := range errors {
+			sb.WriteString("\n - ")
+			sb.WriteString(err.Error())
+		}
+		t.Fatal(sb.String())
+	}
 }
 
 func composeErrors(errors []error, separator string) error {
@@ -2626,6 +2730,374 @@ func Test_Add_Massivo(t *testing.T) {
 
 //
 
+func Test_PublicAPI_ForEach_GetAt_And_Remove(t *testing.T) {
+	tree, err := NewTree()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keys := []int{10, 5, 15, 3, 7, 12, 17}
+	for _, key := range keys {
+		_, err := tree.Put(key, NewTestDataDefaultString(key))
+		if err != nil {
+			t.Fatalf("put %d failed: %v", key, err)
+		}
+	}
+
+	wantSorted := []int{3, 5, 7, 10, 12, 15, 17}
+	var gotSorted []int
+	for i := 0; i < len(wantSorted); i++ {
+		kv, err := tree.GetAt(int64(i))
+		if err != nil {
+			t.Fatalf("GetAt(%d) returned error: %v", i, err)
+		}
+		gotSorted = append(gotSorted, kv.key)
+	}
+	if !reflect.DeepEqual(gotSorted, wantSorted) {
+		t.Fatalf("expected sorted keys %v, got %v", wantSorted, gotSorted)
+	}
+
+	var inOrder []int
+	if err := tree.ForEach(InOrder, func(k int, v *TestData, index int) error {
+		inOrder = append(inOrder, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("InOrder iteration failed: %v", err)
+	}
+	if !reflect.DeepEqual(inOrder, wantSorted) {
+		t.Fatalf("expected in-order traversal %v, got %v", wantSorted, inOrder)
+	}
+
+	var reverseInOrder []int
+	if err := tree.ForEach(ReverseInOrder, func(k int, v *TestData, index int) error {
+		reverseInOrder = append(reverseInOrder, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("ReverseInOrder iteration failed: %v", err)
+	}
+	wantReverse := []int{17, 15, 12, 10, 7, 5, 3}
+	if !reflect.DeepEqual(reverseInOrder, wantReverse) {
+		t.Fatalf("expected reverse in-order traversal %v, got %v", wantReverse, reverseInOrder)
+	}
+
+	var queue []int
+	if err := tree.ForEach(Queue, func(k int, v *TestData, index int) error {
+		queue = append(queue, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("Queue iteration failed: %v", err)
+	}
+	wantQueue := []int{10, 5, 15, 3, 7, 12, 17}
+	if !reflect.DeepEqual(queue, wantQueue) {
+		t.Fatalf("expected queue traversal %v, got %v", wantQueue, queue)
+	}
+
+	var stack []int
+	if err := tree.ForEach(Stack, func(k int, v *TestData, index int) error {
+		stack = append(stack, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("Stack iteration failed: %v", err)
+	}
+	wantStack := []int{17, 12, 7, 3, 15, 5, 10}
+	if !reflect.DeepEqual(stack, wantStack) {
+		t.Fatalf("expected stack traversal %v, got %v", wantStack, stack)
+	}
+
+	removed, err := tree.Remove(3)
+	if err != nil {
+		t.Fatalf("remove 3 failed: %v", err)
+	}
+	if removed.Id != 3 {
+		t.Fatalf("expected removed value for key 3, got %+v", removed)
+	}
+
+	wantAfterRemove := []int{5, 7, 10, 12, 15, 17}
+	gotAfterRemove := make([]int, 0, len(wantAfterRemove))
+	for i := 0; i < len(wantAfterRemove); i++ {
+		kv, err := tree.GetAt(int64(i))
+		if err != nil {
+			t.Fatalf("GetAt(%d) after removal returned error: %v", i, err)
+		}
+		gotAfterRemove = append(gotAfterRemove, kv.key)
+	}
+	if !reflect.DeepEqual(gotAfterRemove, wantAfterRemove) {
+		t.Fatalf("expected sorted keys after remove %v, got %v", wantAfterRemove, gotAfterRemove)
+	}
+
+	if tree.Size() != int64(len(wantAfterRemove)) {
+		t.Fatalf("expected size %d after remove, got %d", len(wantAfterRemove), tree.Size())
+	}
+}
+
+func _check_expected_tree_node(t *AVLTree[int, *TestData], current_node *AVLTNode[int, *TestData], current_father *AVLTNode[int, *TestData], expected_node *SimplifiedTreeNode, expected_father *SimplifiedTreeNode, depth int) error {
+	// depth == reverse of height (root == 0 always)
+	if current_node == nil {
+		return fmt.Errorf("Current node (depth: %d) is nil but it shouldn't\n", depth)
+	}
+	if (t._NIL == current_node) && (expected_node != nil) {
+		return fmt.Errorf("Current expected node (depth: %d, k: %d) is not nil but current node  is nil\n", depth, expected_node.key)
+	}
+	if (t._NIL != current_node) && (expected_node == nil) {
+		return fmt.Errorf("Current expected node (depth: %d) is nil but current node is not nil (k: %d)\n", depth, current_node.keyVal.key)
+	}
+	if (t._NIL == current_node) && (expected_node == nil) {
+		return nil // both nil/NIL -> all ok
+	}
+	if current_node.keyVal.key != expected_node.key {
+		return fmt.Errorf("Current expected node (depth: %d, k: %d) has different key than current node (k: %d)\n", depth, expected_node.key, current_node.keyVal.key)
+	}
+	if current_node.father != current_father {
+		father_str := "NULL"
+		if current_father != nil {
+			father_str = current_father.String()
+		}
+		return fmt.Errorf("Current node (depth: %d, k: %d) is has an unexpected father:\n\t%s \n", depth, expected_node.key, father_str)
+	}
+	errLeft := _check_expected_tree_node(t, current_node.left, current_node, expected_node.left, expected_node, depth+1)
+	errRight := _check_expected_tree_node(t, current_node.left, current_node, expected_node.left, expected_node, depth+1)
+	if errLeft != nil && errRight != nil {
+		return fmt.Errorf("Errors on BOTH sides (depth: %d):\n\t left: %s\n\t right: %s\n", depth, errLeft, errRight)
+	} else if errLeft != nil {
+		return errLeft
+	} else if errRight != nil {
+		return errRight
+	}
+	return nil
+}
+
+func _check_expected_tree(t *AVLTree[int, *TestData], expected_root *SimplifiedTreeNode) error {
+	return _check_expected_tree_node(t, t.root, t._NIL, expected_root, nil, 0)
+}
+
+func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
+	testCases := []struct {
+		name              string
+		keys              []int
+		removeKey         int
+		wantRemaining     []int
+		wantErr           bool
+		wantErrValue      *ErrorAVLTree
+		wantRemovedKey    int
+		expectedTreeAfter *SimplifiedTreeNode
+	}{
+		{
+			name:           "remove leaf",
+			keys:           []int{10, 5, 15, 3, 7},
+			removeKey:      3,
+			wantRemaining:  []int{5, 7, 10, 15},
+			wantRemovedKey: 3,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+					right: &SimplifiedTreeNode{
+						key: 7,
+					},
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+				},
+			},
+		},
+		{
+			name:           "remove root with two children",
+			keys:           []int{10, 5, 15},
+			removeKey:      10,
+			wantRemaining:  []int{5, 15},
+			wantRemovedKey: 10,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 15,
+				left: &SimplifiedTreeNode{
+					key: 5,
+				},
+			},
+		},
+		{
+			name:           "remove root from two-node tree",
+			keys:           []int{10, 5},
+			removeKey:      10,
+			wantRemaining:  []int{5},
+			wantRemovedKey: 10,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 5,
+			},
+		},
+		{
+			name:           "remove node with one child",
+			keys:           []int{10, 5, 15, 12},
+			removeKey:      15,
+			wantRemaining:  []int{5, 10, 12},
+			wantRemovedKey: 15,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+				},
+				right: &SimplifiedTreeNode{
+					key: 12,
+				},
+			},
+		},
+		{
+			name:           "remove internal node (root of sub-tree)",
+			keys:           []int{10, 5, 15, 3, 7, 12, 17},
+			removeKey:      15,
+			wantRemaining:  []int{3, 5, 7, 10, 12, 17},
+			wantRemovedKey: 15,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+					left: &SimplifiedTreeNode{
+						key: 3,
+					},
+					right: &SimplifiedTreeNode{
+						key: 7,
+					},
+				},
+				right: &SimplifiedTreeNode{
+					key: 17,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+				},
+			},
+		},
+		{
+			name:          "remove missing key",
+			keys:          []int{10, 5, 15},
+			removeKey:     42,
+			wantRemaining: []int{5, 10, 15},
+			wantErr:       true,
+			wantErrValue:  KEY_NOT_FOUND(),
+		},
+		{
+			name:           "remove internal node (root of sub-tree with just the left node)",
+			keys:           []int{10, 5, 15, 3, 12, 17},
+			removeKey:      5,
+			wantRemaining:  []int{3, 10, 12, 15, 17},
+			wantRemovedKey: 5,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 3,
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+					right: &SimplifiedTreeNode{
+						key: 17,
+					},
+				},
+			},
+		},
+		{
+			name:           "remove internal node (root of sub-tree with just the right node)",
+			keys:           []int{10, 5, 15, 7, 12, 17},
+			removeKey:      5,
+			wantRemaining:  []int{7, 10, 12, 15, 17},
+			wantRemovedKey: 5,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 7,
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+					right: &SimplifiedTreeNode{
+						key: 17,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tree, _, err := newTreeWithKeys(tc.keys)
+			if err != nil {
+				t.Fatalf("failed to build tree: %v", err)
+			}
+
+			removedValue, err := tree.Remove(tc.removeKey)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for key %d, got nil", tc.removeKey)
+				}
+				if err != tc.wantErrValue {
+					t.Fatalf("expected error %v, got %v", tc.wantErrValue, err)
+				}
+				if removedValue != nil {
+					t.Fatalf("expected nil removed value for missing key, got %+v", removedValue)
+				}
+				assertTreeLowLevelState(t, tree, tc.wantRemaining, remainingChronologicalKeys(tc.keys, tc.removeKey))
+				return
+			} else {
+				errors_comparison := _check_expected_tree(tree, tc.expectedTreeAfter)
+				if errors_comparison != nil {
+					t.Fatalf("unexpected error removing key %d: %v", tc.removeKey, errors_comparison)
+				}
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error removing key %d: %v", tc.removeKey, err)
+			}
+			if removedValue == nil {
+				t.Fatalf("expected removed value for key %d, got nil", tc.removeKey)
+			}
+			if removedValue.Id != tc.wantRemovedKey {
+				t.Fatalf("expected removed value for key %d, got %+v", tc.wantRemovedKey, removedValue)
+			}
+
+			gotRemaining, err := collectSortedKeys(tree, len(tc.wantRemaining))
+			if err != nil {
+				t.Fatalf("GetAt failed after removal: %v", err)
+			}
+			if !reflect.DeepEqual(gotRemaining, tc.wantRemaining) {
+				t.Fatalf("expected remaining keys %v, got %v", tc.wantRemaining, gotRemaining)
+			}
+
+			assertTreeLowLevelState(t, tree, tc.wantRemaining, remainingChronologicalKeys(tc.keys, tc.removeKey))
+		})
+	}
+}
+
+func remainingChronologicalKeys(keys []int, removedKey int) []int {
+	chronological := make([]int, 0, len(keys))
+	for _, key := range keys {
+		if key == removedKey {
+			continue
+		}
+		chronological = append(chronological, key)
+	}
+	return chronological
+}
+
+func collectSortedKeys(tree *AVLTree[int, *TestData], count int) ([]int, error) {
+	got := make([]int, 0, count)
+	for i := 0; i < count; i++ {
+		kv, err := tree.GetAt(int64(i))
+		if err != nil {
+			return nil, err
+		}
+		got = append(got, kv.key)
+	}
+	return got, nil
+}
+
 func Test_GetAt(t *testing.T) {
 	tree, err := NewTree()
 	if err != nil {
@@ -3709,58 +4181,89 @@ func testTreeNodesMetadatas[K any, V any](tree *AVLTree[K, V], keys *[]K) []erro
 	return __testTreeNodesMetadatas(tree, coh)
 }
 
-func TestPrint_NTT(t *testing.T) {
-	size := 3
-	maxSize := 22
-	coh := newCheckOrderHelpers[int, *TestData](true, &__VALUES_DEFAULT_len22)
+func assertStructuralIntegrity(t *testing.T, tree *AVLTree[int, *TestData], insertedKeys []int) {
+	t.Helper()
 
-	var sb strings.Builder
-	everHadErros := false
-	for i := size; i <= maxSize; i++ {
-		//t.Logf("now doing size %d\n", i)
-		sb.WriteString(fmt.Sprintf("now doing size %d\n", i))
-		hasError := false
-		tree, err := newTestTree(CUSTOM_LENGTH, i)
-		if err != nil {
-			//t.Log(err)
+	if tree == nil {
+		t.Fatal("tree should not be nil")
+	}
+	if tree._NIL == nil {
+		t.Fatal("tree sentinel should not be nil")
+	}
+	if tree.root == nil {
+		t.Fatal("tree root should not be nil")
+	}
+	if tree.root == tree._NIL && len(insertedKeys) > 0 {
+		t.Fatal("tree root should not be _NIL for non-empty trees")
+	}
+	if tree.Size() != int64(len(insertedKeys)) {
+		t.Fatalf("expected size %d, got %d", len(insertedKeys), tree.Size())
+	}
+	if tree.root != tree._NIL && tree.root.father != tree._NIL {
+		t.Fatalf("root father should be _NIL, got %#v", tree.root.father)
+	}
+
+	wantSorted := append([]int(nil), insertedKeys...)
+	sort.Ints(wantSorted)
+	var gotSorted []int
+	if err := tree.ForEach(InOrder, func(k int, v *TestData, index int) error {
+		gotSorted = append(gotSorted, k)
+		return nil
+	}); err != nil {
+		t.Fatalf("in-order traversal failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotSorted, wantSorted) {
+		t.Fatalf("expected sorted order %v, got %v", wantSorted, gotSorted)
+	}
+
+	if len(insertedKeys) == 0 {
+		if tree.minValue != tree._NIL {
+			t.Fatalf("expected empty tree minValue to be _NIL, got %#v", tree.minValue)
+		}
+		if tree.firstInserted != tree._NIL {
+			t.Fatalf("expected empty tree firstInserted to be _NIL, got %#v", tree.firstInserted)
+		}
+		return
+	}
+
+	if tree.minValue == nil || tree.minValue == tree._NIL {
+		t.Fatal("tree minValue should not be nil or _NIL")
+	}
+	if tree.firstInserted == nil || tree.firstInserted == tree._NIL {
+		t.Fatal("tree firstInserted should not be nil or _NIL")
+	}
+	if tree.minValue.keyVal.key != wantSorted[0] {
+		t.Fatalf("expected minValue key %d, got %d", wantSorted[0], tree.minValue.keyVal.key)
+	}
+	if tree.firstInserted.keyVal.key != insertedKeys[0] {
+		t.Fatalf("expected firstInserted key %d, got %d", insertedKeys[0], tree.firstInserted.keyVal.key)
+	}
+
+	errors := testTreeNodesMetadatas(tree, &insertedKeys)
+	if len(errors) > 0 {
+		var sb strings.Builder
+		sb.WriteString("structural invariants failed:")
+		for _, err := range errors {
+			sb.WriteString("\n - ")
 			sb.WriteString(err.Error())
-			sb.WriteString("\n")
-			hasError = true
-			everHadErros = true
 		}
-
-		if tree != nil {
-
-			if tree.Size() != int64(i) {
-				sb.WriteString(fmt.Sprintf("\nERROR: Wrong size!: expected = %d, got = %d", i, tree.Size()))
-			}
-
-			errors := __testTreeNodesMetadatas(tree, coh)
-
-			// TODO : fare anche gli altri test sui link
-			if len(errors) > 0 {
-				hasError = true
-				everHadErros = true
-				sb.WriteString(fmt.Sprintf("got %d errors:", len(errors)))
-				sb.WriteString(composeErrorsNewLine(errors).Error())
-			}
-		} else {
-			sb.WriteString("TREE IS NULL \n")
-		}
-		if hasError {
-			//t.Log(tree.String())
-			sb.WriteString("\nDump the tree")
-			sb.WriteString(tree.String())
-			sb.WriteString("\n")
-			everHadErros = true
-		}
+		t.Fatal(sb.String())
 	}
-	sb.WriteString("\n\nFINISH\n")
-	if err := os.WriteFile("file.txt", []byte(sb.String()), 0777); err != nil {
-		t.Fatal(err)
-	}
-	if everHadErros {
-		t.Fatal("some errors")
+}
+
+func TestPrint_NTT(t *testing.T) {
+	minSize := 3
+	maxSize := 22
+
+	for size := minSize; size <= maxSize; size++ {
+		t.Run(fmt.Sprintf("size_%d", size), func(t *testing.T) {
+			keys := append([]int(nil), __VALUES_DEFAULT_len22[:size]...)
+			tree, _, err := newTreeWithKeys(keys)
+			if err != nil {
+				t.Fatalf("failed to build tree of size %d: %v", size, err)
+			}
+			assertStructuralIntegrity(t, tree, keys)
+		})
 	}
 }
 
@@ -4449,13 +4952,14 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 
 	// now starts a loop of "filling the gaps"
 	startingSize := 17
-	endSize := 21
+	endSize := 22
 	var pathsPivots_andPlacing = []_subrootData{
-		{true, []int{1, 1, 1}},  // 124
-		{false, []int{1, 0, 1}}, // 36
-		{true, []int{1, 0, 1}},  // 31
-		{false, []int{1, 0, 0}}, // 29
-		{true, []int{1, 0, 0}},  // 22
+		{true, []int{1, 1, 1}},     // 124
+		{false, []int{1, 0, 1}},    // 36
+		{true, []int{1, 0, 1}},     // 31
+		{false, []int{1, 0, 0}},    // 29
+		{true, []int{1, 0, 0}},     // 22
+		{false, []int{1, 1, 1, 0}}, // 126
 	}
 	var ppap _subrootData
 	indexPath := 0
@@ -4470,7 +4974,7 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		if size >= startingSize {
 			ppap = pathsPivots_andPlacing[indexPath]
 
-			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[startingSize-1])
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[startingSize])
 			tree.size++
 
 			subroot, err := gnp(tree, ppap.pathSubroot, sizeUpdater)
