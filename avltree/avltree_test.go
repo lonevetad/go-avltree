@@ -16,6 +16,12 @@ type TestData struct {
 }
 type ForEachAction[K any, V any] func(node *AVLTNode[K, V], index int) error
 
+type SimplifiedTreeNode struct {
+	key   int
+	left  *SimplifiedTreeNode
+	right *SimplifiedTreeNode
+}
+
 func Extract(t *TestData) int {
 	if t == nil {
 		return -1
@@ -2824,15 +2830,56 @@ func Test_PublicAPI_ForEach_GetAt_And_Remove(t *testing.T) {
 	}
 }
 
+func _check_expected_tree_node(t *AVLTree[int, *TestData], current_node *AVLTNode[int, *TestData], current_father *AVLTNode[int, *TestData], expected_node *SimplifiedTreeNode, expected_father *SimplifiedTreeNode, depth int) error {
+	// depth == reverse of height (root == 0 always)
+	if current_node == nil {
+		return fmt.Errorf("Current node (depth: %d) is nil but it shouldn't\n", depth)
+	}
+	if (t._NIL == current_node) && (expected_node != nil) {
+		return fmt.Errorf("Current expected node (depth: %d, k: %d) is not nil but current node  is nil\n", depth, expected_node.key)
+	}
+	if (t._NIL != current_node) && (expected_node == nil) {
+		return fmt.Errorf("Current expected node (depth: %d) is nil but current node is not nil (k: %d)\n", depth, current_node.keyVal.key)
+	}
+	if (t._NIL == current_node) && (expected_node == nil) {
+		return nil // both nil/NIL -> all ok
+	}
+	if current_node.keyVal.key != expected_node.key {
+		return fmt.Errorf("Current expected node (depth: %d, k: %d) has different key than current node (k: %d)\n", depth, expected_node.key, current_node.keyVal.key)
+	}
+	if current_node.father != current_father {
+		father_str := "NULL"
+		if current_father != nil {
+			father_str = current_father.String()
+		}
+		return fmt.Errorf("Current node (depth: %d, k: %d) is has an unexpected father:\n\t%s \n", depth, expected_node.key, father_str)
+	}
+	errLeft := _check_expected_tree_node(t, current_node.left, current_node, expected_node.left, expected_node, depth+1)
+	errRight := _check_expected_tree_node(t, current_node.left, current_node, expected_node.left, expected_node, depth+1)
+	if errLeft != nil && errRight != nil {
+		return fmt.Errorf("Errors on BOTH sides (depth: %d):\n\t left: %s\n\t right: %s\n", depth, errLeft, errRight)
+	} else if errLeft != nil {
+		return errLeft
+	} else if errRight != nil {
+		return errRight
+	}
+	return nil
+}
+
+func _check_expected_tree(t *AVLTree[int, *TestData], expected_root *SimplifiedTreeNode) error {
+	return _check_expected_tree_node(t, t.root, t._NIL, expected_root, nil, 0)
+}
+
 func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 	testCases := []struct {
-		name           string
-		keys           []int
-		removeKey      int
-		wantRemaining  []int
-		wantErr        bool
-		wantErrValue   *ErrorAVLTree
-		wantRemovedKey int
+		name              string
+		keys              []int
+		removeKey         int
+		wantRemaining     []int
+		wantErr           bool
+		wantErrValue      *ErrorAVLTree
+		wantRemovedKey    int
+		expectedTreeAfter *SimplifiedTreeNode
 	}{
 		{
 			name:           "remove leaf",
@@ -2840,6 +2887,19 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 			removeKey:      3,
 			wantRemaining:  []int{5, 7, 10, 15},
 			wantRemovedKey: 3,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+					right: &SimplifiedTreeNode{
+						key: 7,
+					},
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+				},
+			},
 		},
 		{
 			name:           "remove root with two children",
@@ -2847,6 +2907,13 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 			removeKey:      10,
 			wantRemaining:  []int{5, 15},
 			wantRemovedKey: 10,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 15,
+				left: &SimplifiedTreeNode{
+					key: 5,
+				},
+			},
 		},
 		{
 			name:           "remove root from two-node tree",
@@ -2854,6 +2921,10 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 			removeKey:      10,
 			wantRemaining:  []int{5},
 			wantRemovedKey: 10,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 5,
+			},
 		},
 		{
 			name:           "remove node with one child",
@@ -2861,13 +2932,42 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 			removeKey:      15,
 			wantRemaining:  []int{5, 10, 12},
 			wantRemovedKey: 15,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+				},
+				right: &SimplifiedTreeNode{
+					key: 12,
+				},
+			},
 		},
 		{
-			name:           "remove internal node",
+			name:           "remove internal node (root of sub-tree)",
 			keys:           []int{10, 5, 15, 3, 7, 12, 17},
 			removeKey:      15,
 			wantRemaining:  []int{3, 5, 7, 10, 12, 17},
 			wantRemovedKey: 15,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+					left: &SimplifiedTreeNode{
+						key: 3,
+					},
+					right: &SimplifiedTreeNode{
+						key: 7,
+					},
+				},
+				right: &SimplifiedTreeNode{
+					key: 17,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+				},
+			},
 		},
 		{
 			name:          "remove missing key",
@@ -2876,6 +2976,52 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 			wantRemaining: []int{5, 10, 15},
 			wantErr:       true,
 			wantErrValue:  KEY_NOT_FOUND(),
+		},
+		{
+			name:           "remove internal node (root of sub-tree with just the left node)",
+			keys:           []int{10, 5, 15, 3, 12, 17},
+			removeKey:      5,
+			wantRemaining:  []int{3, 10, 12, 15, 17},
+			wantRemovedKey: 5,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 3,
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+					right: &SimplifiedTreeNode{
+						key: 17,
+					},
+				},
+			},
+		},
+		{
+			name:           "remove internal node (root of sub-tree with just the right node)",
+			keys:           []int{10, 5, 15, 7, 12, 17},
+			removeKey:      5,
+			wantRemaining:  []int{7, 10, 12, 15, 17},
+			wantRemovedKey: 5,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 7,
+				},
+				right: &SimplifiedTreeNode{
+					key: 15,
+					left: &SimplifiedTreeNode{
+						key: 12,
+					},
+					right: &SimplifiedTreeNode{
+						key: 17,
+					},
+				},
+			},
 		},
 	}
 
@@ -2899,6 +3045,11 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 				}
 				assertTreeLowLevelState(t, tree, tc.wantRemaining, remainingChronologicalKeys(tc.keys, tc.removeKey))
 				return
+			} else {
+				errors_comparison := _check_expected_tree(tree, tc.expectedTreeAfter)
+				if errors_comparison != nil {
+					t.Fatalf("unexpected error removing key %d: %v", tc.removeKey, errors_comparison)
+				}
 			}
 
 			if err != nil {
@@ -4801,13 +4952,14 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 
 	// now starts a loop of "filling the gaps"
 	startingSize := 17
-	endSize := 21
+	endSize := 22
 	var pathsPivots_andPlacing = []_subrootData{
-		{true, []int{1, 1, 1}},  // 124
-		{false, []int{1, 0, 1}}, // 36
-		{true, []int{1, 0, 1}},  // 31
-		{false, []int{1, 0, 0}}, // 29
-		{true, []int{1, 0, 0}},  // 22
+		{true, []int{1, 1, 1}},     // 124
+		{false, []int{1, 0, 1}},    // 36
+		{true, []int{1, 0, 1}},     // 31
+		{false, []int{1, 0, 0}},    // 29
+		{true, []int{1, 0, 0}},     // 22
+		{false, []int{1, 1, 1, 0}}, // 126
 	}
 	var ppap _subrootData
 	indexPath := 0
@@ -4822,7 +4974,7 @@ func newTestTree(treeType newTreeTest, optionalLength int) (*AVLTree[int, *TestD
 		if size >= startingSize {
 			ppap = pathsPivots_andPlacing[indexPath]
 
-			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[startingSize-1])
+			n = NewTreeNodeFilled(tree, __VALUES_DEFAULT_len22[startingSize])
 			tree.size++
 
 			subroot, err := gnp(tree, ppap.pathSubroot, sizeUpdater)
