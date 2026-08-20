@@ -3023,6 +3023,34 @@ func Test_RemoveByKey_UsingReusableTreeCreation(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:           "remove left of a 3-sized balanced tree",
+			keys:           []int{10, 5, 15},
+			removeKey:      5,
+			wantRemaining:  []int{10, 15},
+			wantRemovedKey: 5,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				right: &SimplifiedTreeNode{
+					key: 15,
+				},
+			},
+		},
+		{
+			name:           "remove right of a 3-sized balanced tree",
+			keys:           []int{10, 5, 15},
+			removeKey:      15,
+			wantRemaining:  []int{5, 10},
+			wantRemovedKey: 15,
+			wantErr:        false,
+			expectedTreeAfter: &SimplifiedTreeNode{
+				key: 10,
+				left: &SimplifiedTreeNode{
+					key: 5,
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

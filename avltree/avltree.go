@@ -171,7 +171,6 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		// self linking
 		n.nextInOrder = n
 		n.prevInOrder = n
-
 		// tracking the chronological order
 		t.firstInserted = n
 		// self linking
@@ -193,7 +192,8 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 		x = next
 		c = t.avlTreeConstructorParams.Comparator(k, x.keyVal.key)
 		if c == 0 {
-			if t.avlTreeConstructorParams.KeyCollisionBehavior == Replace {
+			switch t.avlTreeConstructorParams.KeyCollisionBehavior {
+			case Replace:
 				stillSearching = false
 				oldValue := x.keyVal.value
 				x.keyVal.key = k
@@ -202,9 +202,9 @@ func (t *AVLTree[K, V]) put(n *AVLTNode[K, V]) (V, error) {
 				t.removeToLastInserted(x)
 				t.pushToLastInserted(x)
 				return oldValue, nil
-			} else if t.avlTreeConstructorParams.KeyCollisionBehavior == IgnoreInsertion {
+			case IgnoreInsertion:
 				return x.keyVal.value, nil
-			} else {
+			default:
 				// if (behavior == BehaviorOnKeyCollision.AddItsNotASet) // -> add
 				// stillSearching = false
 				// c = -1
